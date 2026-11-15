@@ -106,7 +106,7 @@ export async function restrictToCurrentUser(target: string, kind: 'dir' | 'file'
     return { ok: true, detail: `only ${me.full}` };
 }
 
-type Restrict = typeof restrictToCurrentUser;
+export type Restrict = typeof restrictToCurrentUser;
 
 /** Creates `dir` if needed and locks it down; throws InsecureStorageError when that fails. */
 export async function ensurePrivateDir(dir: string, opts?: { recursive?: boolean; restrict?: Restrict }): Promise<void> {
