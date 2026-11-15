@@ -6,6 +6,18 @@ import { getTikTokCookiesViaChrome } from './auth.ts';
 import { deleteCookieFile, loadCookies, missingCookies, parseCookieInput, writeCookieMapToDisk } from './cookie-store.ts';
 import { resolveCookiePath, resolveDataDir } from './paths.ts';
 import { clearSignal, readSignal } from './signal.ts';
+import { TtClient } from './client.ts';
+
+/** Identity request. CANDIDATE endpoint, confirmed live in plan Task 4. */
+export const IDENTITY_URL = 'https://www.tiktok.com/passport/web/account/info/?aid=1459';
+
+export function parseIdentity(json: unknown): { username: string; userId: string } | null {
+    const d = (json as { data?: Record<string, unknown> })?.data;
+    const username = d?.username;
+    const userId = d?.user_id_str ?? d?.user_id;
+    if (typeof username !== 'string' || !username || userId === undefined) return null;
+    return { username, userId: String(userId) };
+}
 
 const HELP = `TikTok operator (phase 1)
 
@@ -15,6 +27,7 @@ Usage: npx -y bun skills/tiktok/scripts/main.ts <command> [options]
   import-cookies --file <p>   Import Cookie-Editor JSON, cookies.txt or a raw Cookie header
   logout                      Delete the stored session
   status                      Session state (cookie names only) and the account signal
+  whoami                      The signed-in account (one paced read)
   resume                      Clear the account signal after resolving it in the browser
 
 Output is JSON. Cookie values are never printed.`;
@@ -101,6 +114,13 @@ export async function main(argv: string[]): Promise<number> {
         case 'status':
             await status();
             return 0;
+        case 'whoami': {
+            const json = await new TtClient({ log }).getJson<unknown>(IDENTITY_URL);
+            const id = parseIdentity(json);
+            if (!id) throw Object.assign(new Error('TikTok did not return the signed-in account. Run `login`.'), { code: 'auth' });
+            out(id);
+            return 0;
+        }
         case 'resume': {
             const before = await readSignal();
             await clearSignal();
