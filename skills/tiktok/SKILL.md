@@ -37,6 +37,9 @@ signed in:
    copies the JSON answers the page fetches for itself, and returns a `tt.capture.v1` capture.
 3. To load more posts or comments, run `window.__ttCapture.more()` (one scroll, at most 10 per page), wait
    several seconds, and run the script again to collect.
+   For comments, open the post **with a click from the profile** (it opens inside the page, no new page load);
+   the page then fetches `/api/comment/list/` and the hook copies it. Loading a post URL directly is the
+   request that got a 403 once; avoid it.
 4. Save the returned JSON to a file and run the matching command above.
 
 Every result is `{source, data, complete, reason?}`. `complete: false` says why: `signed_list_api` (no list

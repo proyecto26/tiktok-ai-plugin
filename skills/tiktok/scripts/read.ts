@@ -225,7 +225,7 @@ export function videoFromCapture(c: Capture): ReadResult<TtVideo> {
         const hit = list.find((i) => !id || str(obj(i).id) === id);
         if (hit) return { source: 'api', data: normalizeVideo(hit), complete: true };
     }
-    throw new TtError(id ? 'not_found' : 'unexpected_page', id ? `Video ${id} is not in the capture.` : 'The capture has no video.');
+    throw new TtError(id ? 'not_found' : 'unexpected_page', id ? `Video ${id} is not in the capture. Open it from a profile capture that loaded its list page (window.__ttCapture.more()), then run \`video\` on that capture.` : 'The capture has no video.');
 }
 
 export function commentsFromCapture(c: Capture, opts: { limit?: number }): ReadResult<TtComment[]> {

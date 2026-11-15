@@ -65,16 +65,59 @@
     } catch {
         scope = {};
     }
+    // Compact output: only the fields read.ts uses. Tokens such as secUid are left out, so the
+    // extension does not block the result and long answers are not cut.
+    const user = (d) => {
+        const i = d && d.userInfo;
+        if (!d) return undefined;
+        const u = (i && i.user) || {};
+        return {
+            statusCode: d.statusCode,
+            statusMsg: d.statusMsg,
+            userInfo: i && {
+                user: { id: u.id, uniqueId: u.uniqueId, nickname: u.nickname, signature: u.signature, verified: u.verified, privateAccount: u.privateAccount },
+                stats: i.stats,
+                itemList: (i.itemList || []).map(item),
+            },
+        };
+    };
+    const item = (i) => ({
+        id: i.id,
+        desc: i.desc,
+        createTime: i.createTime,
+        stats: i.stats,
+        video: { duration: i.video && i.video.duration },
+        imagePost: i.imagePost ? { images: (i.imagePost.images || []).map(() => ({})) } : undefined,
+        music: { title: i.music && i.music.title },
+        challenges: (i.challenges || []).map((c) => ({ title: c.title })),
+        textExtra: (i.textExtra || []).map((t) => ({ hashtagName: t.hashtagName })),
+        author: { uniqueId: i.author && i.author.uniqueId },
+    });
+    const comment = (c) => ({
+        cid: c.cid,
+        text: c.text,
+        digg_count: c.digg_count,
+        create_time: c.create_time,
+        reply_comment_total: c.reply_comment_total,
+        user: { unique_id: c.user && c.user.unique_id },
+    });
+    const body = (path, b) => {
+        if (!b || typeof b !== 'object') return {};
+        if (path.includes('comment/list')) return { status_code: b.status_code, has_more: b.has_more, cursor: b.cursor, comments: (b.comments || []).map(comment) };
+        if (path.includes('item/detail')) return { statusCode: b.statusCode, itemInfo: b.itemInfo && { itemStruct: item(b.itemInfo.itemStruct || {}) } };
+        return { statusCode: b.statusCode, hasMore: b.hasMore, cursor: b.cursor, itemList: (b.itemList || []).map(item) };
+    };
+    const vd = scope['webapp.video-detail'];
     const s = w.__ttCapture.state;
-    return {
+    return JSON.stringify({
         schema: 'tt.capture.v1',
         url: location.href.split('?')[0],
         capturedAt: new Date().toISOString(),
         scope: {
-            'webapp.user-detail': scope['webapp.user-detail'],
-            'webapp.video-detail': scope['webapp.video-detail'],
+            'webapp.user-detail': user(scope['webapp.user-detail']),
+            'webapp.video-detail': vd && { statusCode: vd.statusCode, statusMsg: vd.statusMsg, itemInfo: vd.itemInfo && { itemStruct: item(vd.itemInfo.itemStruct || {}) } },
         },
-        responses: s.responses,
+        responses: s.responses.map((r) => ({ path: r.path, body: body(r.path, r.body) })),
         scrolls: s.scrolls,
-    };
+    });
 })();
