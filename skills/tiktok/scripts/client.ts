@@ -23,6 +23,8 @@ const USER_AGENT =
 
 // Challenge and error patterns. CANDIDATES backed by synthetic fixtures until seen live.
 export const CAPTCHA_HTML = /captcha-verify-container|secsdk-captcha|captcha_container|verify-bar-close/i;
+/** WAF JavaScript interstitial ("Please wait..."), seen live on plain-HTTP page loads 2026-11-15. */
+export const WAF_HTML = /_wafchallengeid|SlardarWAF|waf-aiso/;
 export const VERIFY_JSON = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"/;
 export const TOO_MANY = /too many attempts|maximum number of attempts|too many requests/i;
 export const LOGIN_PATH = /^\/login(\/|\?|$)/;
@@ -48,7 +50,7 @@ export function classifyResponse(status: number, url: string, body: string, loca
         return null;
     }
     if (LOGIN_PATH.test(pathOf(url, url))) return 'auth';
-    if (CAPTCHA_HTML.test(body) || VERIFY_JSON.test(body) || TOO_MANY.test(body)) return 'challenge';
+    if (WAF_HTML.test(body) || CAPTCHA_HTML.test(body) || VERIFY_JSON.test(body) || TOO_MANY.test(body)) return 'challenge';
     if (NOT_FOUND_STATUS.test(body)) return 'not_found';
     if (PRIVATE_STATUS.test(body)) return 'private';
     if (status === 404) return 'not_found';

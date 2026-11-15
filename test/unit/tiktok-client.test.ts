@@ -44,6 +44,8 @@ describe('classifyResponse', () => {
         expect(classifyResponse(302, 'https://www.tiktok.com/@x', '', '/login?redirect_url=x')).toBe('auth'));
     test('"user not exist" status is not_found', () =>
         expect(classifyResponse(200, 'https://www.tiktok.com/api/x', fx('user-not-exist.synthetic.json'))).toBe('not_found'));
+    test('the WAF "Please wait" interstitial is a challenge', () =>
+        expect(classifyResponse(200, 'https://www.tiktok.com/@x', fx('waf-challenge.redacted.html'))).toBe('challenge'));
     test('a normal page is null', () => expect(classifyResponse(200, 'https://www.tiktok.com/@x', '<html>ok</html>')).toBeNull());
 });
 
