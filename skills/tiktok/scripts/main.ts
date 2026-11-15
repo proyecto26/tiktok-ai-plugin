@@ -11,7 +11,7 @@ const HELP = `TikTok operator (phase 1)
 
 Usage: npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 
-  login                       Open Chrome, sign in, capture the session cookies
+  login [--timeout <min>]     Open Chrome, sign in, capture the session cookies (default 5 min)
   import-cookies --file <p>   Import Cookie-Editor JSON, cookies.txt or a raw Cookie header
   logout                      Delete the stored session
   status                      Session state (cookie names only) and the account signal
@@ -77,7 +77,9 @@ export async function main(argv: string[]): Promise<number> {
             process.stdout.write(`${HELP}\n`);
             return 0;
         case 'login': {
-            const map = await getTikTokCookiesViaChrome({ log });
+            const minutes = typeof flags.timeout === 'string' ? Number(flags.timeout) : 5;
+            if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 30) throw new Error('--timeout is minutes, 1 to 30');
+            const map = await getTikTokCookiesViaChrome({ log, timeoutMs: minutes * 60_000 });
             await writeCookieMapToDisk(map, { log });
             out({ signedIn: true, cookies: Object.keys(map).sort(), missing: missingCookies(map) });
             return 0;
