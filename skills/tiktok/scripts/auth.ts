@@ -15,7 +15,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getFreePort(): Promise<number> {
+export async function getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
         const server = net.createServer();
         server.unref();
@@ -35,7 +35,7 @@ async function getFreePort(): Promise<number> {
     });
 }
 
-function findChromeExecutable(): string | undefined {
+export function findChromeExecutable(): string | undefined {
     const override = process.env.TIKTOK_CHROME_PATH?.trim();
     if (override && fs.existsSync(override)) return override;
 
@@ -85,7 +85,7 @@ async function fetchJson<T = unknown>(url: string): Promise<T> {
     return (await res.json()) as T;
 }
 
-async function waitForChromeDebugPort(
+export async function waitForChromeDebugPort(
     port: number,
     timeoutMs: number,
 ): Promise<{ webSocketDebuggerUrl: string }> {
@@ -113,7 +113,7 @@ async function waitForChromeDebugPort(
     );
 }
 
-class CdpConnection {
+export class CdpConnection {
     private ws: WebSocket;
     private nextId = 0;
     private pending = new Map<
