@@ -1,0 +1,1 @@
+{"_note":"SYNTHETIC: user-detail scope for a nonexistent user (statusCode 10221 candidate)","__DEFAULT_SCOPE__":{"webapp.user-detail":{"statusCode":10221,"statusMsg":"user not exist"}}}

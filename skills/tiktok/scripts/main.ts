@@ -7,6 +7,7 @@ import { deleteCookieFile, loadCookies, missingCookies, parseCookieInput, writeC
 import { resolveCookiePath, resolveDataDir } from './paths.ts';
 import { clearSignal, readSignal } from './signal.ts';
 import { TtClient } from './client.ts';
+import { commentsFromCapture, parseCapture, profileFromCapture, videoFromCapture, videosFromCapture } from './read.ts';
 
 /** Identity request. CANDIDATE endpoint, confirmed live in plan Task 4. */
 export const IDENTITY_URL = 'https://www.tiktok.com/passport/web/account/info/?aid=1459';
@@ -29,6 +30,12 @@ Usage: npx -y bun skills/tiktok/scripts/main.ts <command> [options]
   status                      Session state (cookie names only) and the account signal
   whoami                      The signed-in account (one paced read)
   resume                      Clear the account signal after resolving it in the browser
+
+Reads (from a capture made in your own Chrome with scripts/browser/capture.js):
+  profile  --capture <file>              Profile and stats
+  videos   --capture <file> [--limit N]  Posts (default 20, max 200)
+  video    --capture <file>              One post
+  comments --capture <file> [--limit N]  Comments of a post
 
 Output is JSON. Cookie values are never printed.`;
 
@@ -127,6 +134,23 @@ export async function main(argv: string[]): Promise<number> {
             out({ resumed: true, cleared: before ? { kind: before.kind, at: before.at } : null });
             return 0;
         }
+        case 'profile':
+        case 'videos':
+        case 'video':
+        case 'comments': {
+            const file = flags.capture;
+            if (typeof file !== 'string') throw new Error(`${command} needs --capture <file> (made with scripts/browser/capture.js)`);
+            const cap = parseCapture(await readFile(file, 'utf8'));
+            const limit = typeof flags.limit === 'string' ? Number(flags.limit) : undefined;
+            if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) throw new Error('--limit is a positive whole number');
+            const result =
+                command === 'profile' ? profileFromCapture(cap)
+                : command === 'videos' ? videosFromCapture(cap, { limit })
+                : command === 'video' ? videoFromCapture(cap)
+                : commentsFromCapture(cap, { limit });
+            out(result);
+            return 0;
+        }
         default:
             process.stderr.write(`Unknown command: ${command}\n\n${HELP}\n`);
             return 2;
@@ -136,8 +160,8 @@ export async function main(argv: string[]): Promise<number> {
 if (import.meta.main) {
     main(process.argv.slice(2)).then(
         (code) => process.exit(code),
-        (error: Error & { code?: string }) => {
-            out({ ok: false, error: { kind: error.code ?? error.name, message: error.message } });
+        (error: Error & { code?: string; kind?: string }) => {
+            out({ ok: false, error: { kind: error.kind ?? error.code ?? error.name, message: error.message } });
             process.exit(1);
         },
     );

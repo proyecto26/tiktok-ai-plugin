@@ -20,6 +20,30 @@ npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 | `logout` | Deletes the stored session |
 | `status` | Signed in or not, cookie names (never values), and whether the account is stopped by a signal |
 | `resume` | Clears the account signal after you resolved a captcha or verification in the browser |
+| `whoami` | The signed-in account (one paced request) |
+| `profile --capture <file>` | Profile and stats from a browser capture |
+| `videos --capture <file> [--limit N]` | Posts (default 20, max 200), videos and photo posts |
+| `video --capture <file>` | One post |
+| `comments --capture <file> [--limit N]` | Comments of a post |
+
+## Reading through your own Chrome
+
+TikTok answers plain HTTP page loads with a "Please wait" WAF page, and its list APIs need signatures that only
+its own page code makes. So reads happen in **your normal Chrome** (claude-in-chrome), where you are already
+signed in:
+
+1. Open one tab on the profile or post. Wait for it to load.
+2. Run the text of `scripts/browser/capture.js` in the tab (javascript_tool). It installs a read-only hook that
+   copies the JSON answers the page fetches for itself, and returns a `tt.capture.v1` capture.
+3. To load more posts or comments, run `window.__ttCapture.more()` (one scroll, at most 10 per page), wait
+   several seconds, and run the script again to collect.
+4. Save the returned JSON to a file and run the matching command above.
+
+Every result is `{source, data, complete, reason?}`. `complete: false` says why: `signed_list_api` (no list
+answer was captured, only what the page embedded), `not_scrolled_far_enough`, or `request_budget`.
+
+Pace yourself: one tab, few page loads, long pauses. A 403 "Access denied" page, a captcha or a "Please wait"
+page means stop: write nothing more, close the tab and tell the user.
 
 ## Rules
 
