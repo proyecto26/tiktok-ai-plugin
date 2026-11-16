@@ -7,6 +7,7 @@ import { deleteCookieFile, loadCookies, missingCookies, parseCookieInput, writeC
 import { resolveCookiePath, resolveDataDir } from './paths.ts';
 import { assertNoSignal, clearSignal, readSignal, writeSignal } from './signal.ts';
 import { TtClient } from './client.ts';
+import { PUBLISH_BOOLEANS, PUBLISH_HELP, publishCommand } from './publish/cli.ts';
 import { commentsFromCapture, parseCapture, profileFromCapture, videoFromCapture, videosFromCapture } from './read.ts';
 
 /** Identity request. CANDIDATE endpoint, confirmed live in plan Task 4. */
@@ -20,7 +21,7 @@ export function parseIdentity(json: unknown): { username: string; userId: string
     return { username, userId: String(userId) };
 }
 
-const HELP = `TikTok operator (phase 1)
+const HELP = `TikTok operator
 
 Usage: npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 
@@ -36,6 +37,8 @@ Reads (from a capture made in your own Chrome with scripts/browser/capture.js):
   videos   --capture <file> [--limit N]  Posts (default 20, max 200)
   video    --capture <file>              One post
   comments --capture <file> [--limit N]  Comments of a post
+
+${PUBLISH_HELP}
 
 Output is JSON. Cookie values are never printed.`;
 
@@ -90,7 +93,7 @@ async function status(): Promise<void> {
 }
 
 export async function main(argv: string[]): Promise<number> {
-    const { command, flags } = parseArgs(argv);
+    const { command, positionals, flags } = parseArgs(argv, ['json', 'help', ...PUBLISH_BOOLEANS]);
     switch (command) {
         case undefined:
         case 'help':
@@ -161,6 +164,8 @@ export async function main(argv: string[]): Promise<number> {
             out(result);
             return 0;
         }
+        case 'publish':
+            return publishCommand(positionals[0], flags, out);
         default:
             process.stderr.write(`Unknown command: ${command}\n\n${HELP}\n`);
             return 2;
