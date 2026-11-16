@@ -63,5 +63,5 @@
     } catch {
         // unreadable context: no account (profile links on the page do not say who is signed in)
     }
-    return JSON.stringify({ schema: 'tt-rows-v1', account, rows });
+    return JSON.stringify({ schema: 'tt-rows-v1', account, capturedAt: new Date().toISOString(), rows });
 })();

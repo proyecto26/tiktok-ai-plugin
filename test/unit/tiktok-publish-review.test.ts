@@ -31,10 +31,12 @@ const page = (over: Partial<PageState> = {}): PageState => ({
     discloseContent: false,
     files: 1,
     fileNames: ['seam-story.mp4'],
+    location: '',
     ready: true,
     challenge: false,
     ...over,
 });
+const BASELINE = () => ({ schema: 'tt-rows-v1', account: 'jdnichollsc', capturedAt: new Date().toISOString(), rows: [{ text: 'older post', privacy: 'only_me', underReview: false, time: 'Nov 1, 9:00 AM' }] });
 const has = (diff: string[], word: string) => expect(diff.some((d) => d.startsWith(word))).toBe(true);
 
 describe('finding 1: unread controls never pass as approved', () => {
@@ -168,6 +170,7 @@ describe('CLI findings (6 and 9)', () => {
         env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc' };
     });
     const run = (args: string[]) => {
+        if (args[1] === 'begin' && !args.includes('--baseline')) args = [...args, '--baseline', put('baseline.json', BASELINE())];
         const r = spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' });
         return JSON.parse(r.stdout || '{}');
     };
@@ -224,7 +227,10 @@ describe('experimental gate (design §4: first live write of each type needs --e
         dir = mkdtempSync(path.join(os.tmpdir(), 'ttexp-'));
         env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc' };
     });
-    const run = (args: string[]) => JSON.parse(spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' }).stdout || '{}');
+    const run = (args: string[]) => {
+        if (args[1] === 'begin' && !args.includes('--baseline')) args = [...args, '--baseline', put('baseline.json', BASELINE())];
+        return JSON.parse(spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' }).stdout || '{}');
+    };
     const put = (name: string, v: unknown) => {
         const p = path.join(dir, name);
         writeFileSync(p, typeof v === 'string' ? v : JSON.stringify(v));

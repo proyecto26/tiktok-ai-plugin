@@ -98,6 +98,7 @@ describe('studio-rows.js', () => {
         expect(JSON.parse(result)).toEqual({
             schema: 'tt-rows-v1',
             account: 'jdnichollsc',
+            capturedAt: expect.any(String),
             rows: [
                 { text: 'seam test', privacy: 'only_me', underReview: true, time: 'Nov 15, 2026' },
                 { text: 'older post', privacy: 'everyone', underReview: false, time: 'Nov 15, 2026' },

@@ -7,7 +7,7 @@ import { ensurePrivateDir } from '../secure.ts';
 import { assertNoSignal, writeSignal } from '../signal.ts';
 import { type Draft, experimentalVariants, normalizeAccount, type PostSettings, type Privacy, prepareDraft, verifyDraft } from './draft.ts';
 import { allAttempts, beginAttempt, getAttempt, markOutcome, type Outcome, openAttempts } from './ledger.ts';
-import { compareState, matchRow, type PageState, type Rows } from './reconcile.ts';
+import { checkBaseline, compareState, matchRow, type PageState, type Rows } from './reconcile.ts';
 
 export const PUBLISH_BOOLEANS = ['public', 'no-comments', 'no-reuse', 'ai-generated', 'disclose', 'by-owner', 'experimental'] as const;
 
@@ -16,8 +16,9 @@ export const PUBLISH_HELP = `Publishing (TikTok Studio composer in your own Chro
                   [--privacy only_me|friends|everyone|follow_back] [--public]
                   [--no-comments] [--no-reuse] [--ai-generated] [--disclose]
                                          Dry run: hashes the media, prints the draft and its digest
-  publish begin --draft <digest> --approve <digest> --page-state <file> [--experimental]
-                                         After the owner's yes and compose.js state(): records the attempt
+  publish begin --draft <digest> --approve <digest> --page-state <file> --baseline <rows> [--experimental]
+                                         After the owner's yes, compose.js snapshot() and a fresh
+                                         studio-rows.js read: records the attempt
   publish finish --attempt <id> --outcome processing|unknown [--post-id id]
   publish finish --attempt <id> --outcome published|rejected --by-owner   Owner checked Studio by hand
   publish reconcile --attempt <id> --rows <file>   Settle an attempt from studio-rows.js output
@@ -79,7 +80,7 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
                 draft,
                 experimental: experimentalVariants(draft.settings),
                 savedTo: file,
-                nextStep: 'Show this draft to the owner. Only after an explicit yes: open TikTok Studio upload, add the file(s), run compose.js fill + state, save the state, then publish begin --draft <digest> --approve <digest> --page-state <file>.',
+                nextStep: 'Show this draft to the owner. Only after an explicit yes: open TikTok Studio upload and run compose.js BEFORE adding the file(s); add them; await __ttCompose.fill(settings); in a second tab run studio-rows.js on Studio content and save it (the baseline, max 5 min old); back in the upload tab save JSON.stringify(await __ttCompose.snapshot()); then publish begin --draft <digest> --approve <digest> --page-state <file> --baseline <rows file>.',
                 ...(draft.media.some((m) => m.manualFilePick) ? { manualFilePick: 'A file is over 10 MB: the owner selects it in the page; the rest stays automated.' } : {}),
             });
             return 0;
@@ -98,6 +99,8 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             }
             const diff = compareState(draft, state);
             if (diff.length) throw new TtError('page_mismatch', `The page does not show the approved post: ${diff.join('; ')}. Fix the page (compose.js fill) and read the state again; do not click Post.`);
+            const base = checkBaseline(draft, await readJson<Rows>(str(flags.baseline), '--baseline'));
+            if (base.length) throw new TtError('page_mismatch', `${base.join('; ')}. Do not click Post.`);
             const attempt = await beginAttempt({ account: draft.account, digest: draft.digest, ...(exp.length ? { detail: `experimental: ${exp.join(', ')}` } : {}) });
             out({ attempt, nextStep: `Click Post now (once). Then: publish finish --attempt ${attempt.id} --outcome ... or publish reconcile --attempt ${attempt.id} --rows <studio-rows.json>. If the page crashes or is unclear: --outcome unknown, never post again.` });
             return 0;

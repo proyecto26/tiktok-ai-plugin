@@ -88,8 +88,12 @@
     };
 
     const privacyBox = () => document.querySelector('[data-e2e="video_visibility_container"]');
+    // Seen live 2026-11-16: the selected label is the text of the closed combobox button; its options render
+    // outside the container. Only that button counts, and an open dropdown is not a selection.
     const readPrivacy = () => {
-        const t = text(privacyBox()).toLowerCase();
+        const cb = privacyBox() && privacyBox().querySelector('[role="combobox"]');
+        if (!cb || cb.getAttribute('aria-expanded') === 'true') return 'unknown';
+        const t = text(cb).toLowerCase();
         for (const [label, v] of Object.entries(PRIVACY).sort((a, b) => b[0].length - a[0].length)) if (t.includes(label)) return v;
         return 'unknown';
     };
@@ -105,7 +109,19 @@
         }
         return null;
     };
-    const checked = (c) => (c ? (c.checked === true || c.getAttribute('aria-checked') === 'true') : null);
+    // Seen live 2026-11-16: all four are <input type=checkbox> (two with role=switch and no aria-checked), so an
+    // input reads its checked property; any other control must say aria-checked true/false, else it is unread.
+    const checked = (c) => {
+        if (!c) return null;
+        if (c.tagName === 'INPUT') return c.checked === true;
+        const a = c.getAttribute('aria-checked');
+        return a === 'true' ? true : a === 'false' ? false : null;
+    };
+    // Seen live 2026-11-16: a chosen location is the value of the search input in poi_container ('' when none).
+    const readLocation = () => {
+        const i = document.querySelector('[data-e2e="poi_container"] input');
+        return i ? String(i.value || '').trim() : null;
+    };
     const showMore = () => {
         const m = byText(/^show more$/i)[0];
         if (m) safeClick(m);
@@ -154,6 +170,7 @@
             privacy: readPrivacy(),
             files: files(),
             fileNames: fileNames(),
+            location: readLocation(),
             challenge: challenge(),
             ready: !challenge() && !!postButton() && !postButton().disabled && postButton().getAttribute('aria-disabled') !== 'true' && !busy(),
         };
@@ -165,7 +182,7 @@
         }
         // a control that was not found is null (not false), so it can never pass as an approved value
         for (const [key, re] of Object.entries(TOGGLES)) s[key] = checked(control(re));
-        const unread = Object.entries(TOGGLES).filter(([, re]) => !control(re)).map(([key]) => key);
+        const unread = Object.keys(TOGGLES).filter((key) => s[key] === null);
         if (unread.length) s.unread = unread;
         return s;
     }

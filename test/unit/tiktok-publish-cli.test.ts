@@ -16,6 +16,8 @@ beforeEach(() => {
     env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc', TZ: 'UTC' };
 });
 const run = (args: string[]) => {
+    // begin needs a fresh Studio baseline; an empty one unless the test passes its own
+    if (args[1] === 'begin' && !args.includes('--baseline')) args = [...args, '--baseline', put('baseline.json', { schema: 'tt-rows-v1', account: 'jdnichollsc', capturedAt: new Date().toISOString(), rows: [{ text: 'older post', privacy: 'only_me', underReview: false, time: 'Nov 1, 9:00 AM' }] })];
     const r = spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' });
     let json: Record<string, any> = {};
     try {
@@ -44,6 +46,7 @@ const pageState = (over: Partial<PageState> = {}): PageState => ({
     discloseContent: false,
     files: 1,
     fileNames: ['clip.mp4'],
+    location: '',
     ready: true,
     ...over,
 });

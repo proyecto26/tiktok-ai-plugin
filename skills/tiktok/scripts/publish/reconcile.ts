@@ -30,6 +30,8 @@ export interface PageState {
     challenge?: boolean;
     /** Toggles compose.js could not find; their values in this state are not readings. */
     unread?: string[];
+    /** The chosen location ('' when none); null when the field was not found. The draft never sets one. */
+    location?: string | null;
 }
 
 /** One row of /tiktokstudio/content, read by scripts/browser/studio-rows.js. */
@@ -43,6 +45,8 @@ export interface Row {
 export interface Rows {
     schema: 'tt-rows-v1';
     account: string;
+    /** When studio-rows.js read the page (ISO). */
+    capturedAt?: string;
     rows: Row[];
 }
 
@@ -110,6 +114,7 @@ export function compareState(d: Pick<Draft, 'account' | 'media' | 'settings'>, s
     const fields = set.kind === 'video' ? (['caption'] as const) : (['title', 'description'] as const);
     for (const f of fields) if (squash(s[f]) !== squash(set[f])) diff.push(`${f}: page "${squash(s[f])}", draft "${squash(set[f])}"`);
     if (s.privacy !== set.privacy) diff.push(`privacy: page ${s.privacy}, draft ${set.privacy}`);
+    if (s.location !== '') diff.push(typeof s.location === 'string' ? `location: the page has "${s.location}", the approved post has none (clear it)` : 'location: compose.js could not read the location field');
     for (const k of ['allowComments', 'allowReuse', 'aiGenerated', 'discloseContent'] as const) if (s[k] !== set[k]) diff.push(`${k}: page ${s[k]}, draft ${set[k]}`);
     if (s.files !== d.media.length) diff.push(`files: page has ${s.files}, draft has ${d.media.length}`);
     else if (set.kind === 'photo') diff.push(...compareMedia(d, s));
@@ -138,6 +143,13 @@ export function rowTime(t: string | undefined, year: number): number | null {
 /** A row counts for an attempt only if it was created from the attempt's minute up to this long after. */
 export const ROW_WINDOW_MS = 15 * 60_000;
 
+const draftText = (d: Pick<Draft, 'settings'>) => squash(d.settings.kind === 'video' ? d.settings.caption : d.settings.description || d.settings.title);
+/** Rows may be cut ("..."), so the shown prefix must match. */
+const shows = (want: string, rowText: string) => {
+    const shown = squash(rowText).replace(/(\.\.\.|…)$/, '').trim();
+    return shown.length >= Math.min(want.length, 20) && want.startsWith(shown);
+};
+
 /**
  * The Studio row for this attempt: the only row whose text is the start of the draft's text AND whose time
  * falls in [attempt minute, attempt + ROW_WINDOW_MS]. Rows may be cut ("..."), so the shown prefix must match.
@@ -145,16 +157,43 @@ export const ROW_WINDOW_MS = 15 * 60_000;
  */
 export function matchRow(d: Pick<Draft, 'settings'>, startedAt: string, rows: Row[]): Row | null {
     // Seen live 2026-11-16: Studio lists a photo post by its description, not its title (title only if no description: unverified).
-    const want = squash(d.settings.kind === 'video' ? d.settings.caption : d.settings.description || d.settings.title);
+    const want = draftText(d);
     const start = Date.parse(startedAt);
     if (!want || !Number.isFinite(start)) return null;
     const from = Math.floor(start / 60_000) * 60_000;
     const year = new Date(start).getFullYear();
     const hits = rows.filter((r) => {
-        const shown = squash(r.text).replace(/(\.\.\.|…)$/, '').trim();
-        if (!(shown.length >= Math.min(want.length, 20) && want.startsWith(shown))) return false;
+        if (!shows(want, r.text)) return false;
         const t = rowTime(r.time, year);
         return t !== null && t >= from && t <= start + ROW_WINDOW_MS;
     });
     return hits.length === 1 ? hits[0] : null;
+}
+
+export const BASELINE_MAX_AGE_MS = 5 * 60_000;
+/**
+ * Studio content read before begin (studio-rows.js). matchRow settles an attempt by text and minute, so a post
+ * with the same text that is still under review (no date yet) or dated in or after the baseline's minute could
+ * later be taken for this one. begin refuses then: wait until it has a date, or change the text.
+ */
+export function checkBaseline(d: Pick<Draft, 'account' | 'settings'>, b: Rows | undefined, now = Date.now()): string[] {
+    if (b?.schema !== 'tt-rows-v1' || !Array.isArray(b.rows)) return ['baseline: not a tt-rows-v1 file (run scripts/browser/studio-rows.js on Studio content)'];
+    const out: string[] = [];
+    if (normalizeAccount(String(b.account ?? '')) !== d.account) out.push(`baseline: read as @${b.account || '?'}, draft is for @${d.account}`);
+    const at = Date.parse(String(b.capturedAt ?? ''));
+    if (!Number.isFinite(at) || now - at > BASELINE_MAX_AGE_MS || at - now > 60_000) {
+        out.push('baseline: stale or undated; read Studio content again (studio-rows.js) right before publish begin');
+        return out;
+    }
+    // An unloaded list also reads as zero rows, so zero rows never proves that no same-text post exists.
+    if (!b.rows.length) out.push('baseline: no rows (Studio content did not load); reload it and run studio-rows.js again');
+    const want = draftText(d);
+    const floor = Math.floor(at / 60_000) * 60_000;
+    const year = new Date(at).getFullYear();
+    const clash = b.rows.filter((r) => shows(want, r.text)).filter((r) => {
+        const t = rowTime(r.time, year);
+        return t === null || t >= floor;
+    });
+    if (clash.length) out.push(`baseline: Studio already lists a post with this text that is under review or from this minute ("${squash(clash[0].text)}"); wait until it shows a date, or change the text`);
+    return out;
 }

@@ -189,7 +189,9 @@ bash ../scripts/check-manifests.sh
   approval by caption, privacy and toggles; a video by file name (a different file with the same name
   would pass), photos by the exact bytes given to the page's file input plus a visual fingerprint of each
   editor thumbnail (a close re-edit dropped into the editor could pass).
-  The cover is left at TikTok's default: look at the preview before Post. Files over 10 MB are picked in the page by you.
+  The page must show no location. Studio rows carry no post id, only text and a minute, so another post with
+  the same text in the same window could settle an attempt whose own Post failed: post nothing else with
+  matching text until it is settled. The cover is left at TikTok's default: look at the preview before Post. Files over 10 MB are picked in the page by you.
 - **No hashtag or search reads yet**, and no scheduling (Studio blocks scheduling for private posts).
 - **Private endpoints change.** Field names and page data can move; every read reports its source.
 - **No TikTok analytics API.** Watch time, traffic sources and follower growth live in TikTok

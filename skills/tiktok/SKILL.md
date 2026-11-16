@@ -79,16 +79,25 @@ Variants not yet verified live (non-private, AI label, disclosure; `prepare` lis
    Photos: if the editor already holds other photos, remove them so it shows exactly the approved ones.
    Add photos only through the file input, never by drag and drop. Every file added after compose.js ran
    stays recorded even if removed later, so a wrong pick means: reload, run compose.js again, start over.
-4. `await window.__ttCompose.fill(<draft.settings>)`, then save
+4. `await window.__ttCompose.fill(<draft.settings>)`. Read the baseline (below) in a second tab; then, back in
+   the upload tab, save
    `JSON.stringify(await window.__ttCompose.snapshot())` to a file **right before** step 5 (a state older than
    2 minutes is refused). Copy it verbatim; never edit or fill in a field by hand. Never type into the photo
    description with other tools: it is a Draft.js editor, and a native text insert crashes the whole editor.
-5. `publish begin --draft <digest> --approve <digest> --page-state <file>`. It refuses on an account signal, a
-   changed file, a different digest, a stale state, a verification on the page (it writes the account signal),
-   a toggle compose.js could not read, uploaded files that differ from the draft (name for a video; bytes,
+   The baseline: in a second tab, open `https://www.tiktok.com/tiktokstudio/content`, run `scripts/browser/studio-rows.js`
+   and save the result: the **baseline** (at most 5 minutes old at begin; a list that did not load reads as no
+   rows and is refused). Reconcile tells this post apart by text and minute, so begin refuses if Studio already
+   lists a post with the same text still under review or dated in that minute: wait for a date, or change the text.
+5. `publish begin --draft <digest> --approve <digest> --page-state <file> --baseline <rows file>`. It refuses on
+   an account signal, a changed file, a different digest, a stale state, a verification on the page (it writes the account signal),
+   a toggle or privacy compose.js could not read (an open privacy dropdown reads as unknown), a location on the
+   post (approved posts have none; clear it), uploaded files that differ from the draft (name for a video; bytes,
    count or thumbnail order for photos), or anything else the
    page shows differently (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post**
    once, in the same tab, without reloading or switching accounts.
+   Studio rows have no post id and only a minute, so reconcile can be fooled: from the baseline until the
+   attempt is settled (up to 15 minutes after begin), post nothing else on this account whose text matches or
+   starts like this one. If that may have happened, have the owner check Studio and close it with `--by-owner`.
 6. Studio moves to `/tiktokstudio/content`. Run `scripts/browser/studio-rows.js`, save the result, then
    `publish reconcile --attempt <id> --rows <file>`. A row matches only when its text (video: caption;
    photos: the description, which is what Studio lists) AND its time fit the attempt, and only if exactly one
