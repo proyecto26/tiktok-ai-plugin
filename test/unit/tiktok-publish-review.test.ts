@@ -231,12 +231,16 @@ describe('experimental gate (design §4: first live write of each type needs --e
         return p;
     };
     test('prepare lists the unverified variants; begin refuses them without --experimental', () => {
-        const p = run(['publish', 'prepare', '--photos', `${put('a.jpg', 'a')},${put('b.jpg', 'b')}`, '--title', 'T', '--description', 'D']);
-        expect(p.experimental).toEqual(['photo']);
+        const p = run(['publish', 'prepare', '--photos', `${put('a.jpg', 'a')},${put('b.jpg', 'b')}`, '--title', 'T', '--description', 'D', '--ai-generated']);
+        expect(p.experimental).toEqual(['ai-label']);
         const d = p.draft;
-        const state = put('ps.json', { ...page({ kind: 'photo', title: 'T', description: 'D', files: 2, fileNames: ['a.jpg', 'b.jpg'], capturedAt: new Date().toISOString() }), caption: undefined });
-        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state]).error.message).toMatch(/(photo).*--experimental/);
-        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state, '--experimental']).attempt).toMatchObject({ state: 'submitted', detail: expect.stringContaining('experimental: photo') });
+        const state = put('ps.json', { ...page({ kind: 'photo', title: 'T', description: 'D', files: 2, fileNames: undefined, uploads: [{ sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb', bytes: 1, dhash: '0'.repeat(64) }, { sha256: '3e23e816 0039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d', bytes: 1, dhash: 'f'.repeat(64) }], thumbs: [{ dhash: '0'.repeat(64) }, { dhash: 'f'.repeat(64) }], aiGenerated: true, capturedAt: new Date().toISOString() }), caption: undefined });
+        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state]).error.message).toMatch(/(ai-label).*--experimental/);
+        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state, '--experimental']).attempt).toMatchObject({ state: 'submitted', detail: expect.stringContaining('experimental: ai-label') });
+    });
+    test('the verified private photo carousel needs no flag', () => {
+        const p = run(['publish', 'prepare', '--photos', `${put('a.jpg', 'a')},${put('b.jpg', 'b')}`, '--title', 'T', '--description', 'D']);
+        expect(p.experimental).toEqual([]);
     });
     test('the verified private video needs no flag', () => {
         const p = run(['publish', 'prepare', '--video', put('seam-story.mp4', 'v'), '--caption', 'c']);
@@ -248,4 +252,107 @@ describe('experimental gate (design §4: first live write of each type needs --e
         const p = run(['publish', 'prepare', '--video', put('v.mp4', 'v'), '--caption', 'c', '--privacy', 'everyone', '--public', '--ai-generated', '--disclose']);
         expect(p.experimental).toEqual(['non-private', 'ai-label', 'disclosure']);
     });
+});
+
+describe('photo binding: exact bytes handed to the page + visual fingerprint per thumbnail', () => {
+    const photoDraft = {
+        account: 'jdnichollsc',
+        media: [
+            { path: 'C:/x/seam-1.jpg', sha256: 'a'.repeat(64), bytes: 10, manualFilePick: false },
+            { path: 'C:/x/seam-2.jpg', sha256: 'b'.repeat(64), bytes: 20, manualFilePick: false },
+        ],
+        settings: { kind: 'photo', title: 'T', description: 'D', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false },
+    } as Draft;
+    const H1 = '0'.repeat(64);
+    const H2 = 'f'.repeat(64);
+    const near = (h: string) => `${h.slice(0, 62)}${h[62] === '0' ? '01' : 'fe'}`; // a few bits off
+    const photoPage = (over: Partial<PageState> = {}) =>
+        page({ kind: 'photo', caption: undefined, title: 'T', description: 'D', files: 2, fileNames: undefined, uploads: [{ sha256: 'a'.repeat(64), bytes: 10, dhash: H1 }, { sha256: 'b'.repeat(64), bytes: 20, dhash: H2 }], thumbs: [{ dhash: near(H1) }, { dhash: near(H2) }], ...over });
+    test('matching bytes and thumbnails in order pass, with no file names on the page', () => {
+        expect(compareState(photoDraft, photoPage(), NOW)).toEqual([]);
+    });
+    test('a different file handed to the page is a mismatch', () => {
+        has(compareState(photoDraft, photoPage({ uploads: [{ sha256: 'c'.repeat(64), bytes: 10, dhash: H1 }, { sha256: 'b'.repeat(64), bytes: 20, dhash: H2 }] }), NOW), 'files');
+    });
+    test('no recorded uploads (compose.js armed too late) is a mismatch', () => {
+        has(compareState(photoDraft, photoPage({ uploads: undefined }), NOW), 'files');
+    });
+    test('swapped thumbnails are a mismatch', () => {
+        has(compareState(photoDraft, photoPage({ thumbs: [{ dhash: near(H2) }, { dhash: near(H1) }] }), NOW), 'order');
+    });
+    test('a thumbnail that matches no upload, or an unreadable one, is a mismatch', () => {
+        const far = '0f'.repeat(32);
+        has(compareState(photoDraft, photoPage({ thumbs: [{ dhash: far }, { dhash: near(H2) }] }), NOW), 'order');
+        has(compareState(photoDraft, photoPage({ thumbs: [{ dhash: null }, { dhash: near(H2) }] }), NOW), 'order');
+    });
+    test('compose.js records the files handed to a file input, in order, with their sha256', async () => {
+        const w = new Window({ url: 'https://www.tiktok.com/tiktokstudio/upload?tab=photo' });
+        (w as unknown as Record<string, unknown>).__Creator_Center_Context__ = CTX;
+        w.document.body.innerHTML = '<input type="file" multiple>';
+        const names = ['window', 'document', 'location', 'HTMLInputElement', 'HTMLTextAreaElement', 'InputEvent', 'Event'] as const;
+        new Function(...names, `return (${COMPOSE.trim().replace(/;$/, '')})`)(w, w.document, w.location, w.HTMLInputElement, w.HTMLTextAreaElement, w.InputEvent, w.Event);
+        const input = w.document.querySelector('input')!;
+        const files = [new w.File(['hello'], 'seam-1.jpg'), new w.File(['world!'], 'seam-2.jpg')];
+        Object.defineProperty(input, 'files', { value: files, configurable: true });
+        input.dispatchEvent(new w.Event('change', { bubbles: true }));
+        const up = await (w as unknown as { __ttCompose: { uploads(): Promise<unknown[]> } }).__ttCompose.uploads();
+        expect(up).toEqual([
+            { name: 'seam-1.jpg', bytes: 5, sha256: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824', dhash: null },
+            { name: 'seam-2.jpg', bytes: 6, sha256: '711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d', dhash: null },
+        ]);
+    });
+});
+
+test('compose.js registers its upload listener even if the records array already exists (seen live)', async () => {
+    const w = new Window({ url: 'https://www.tiktok.com/tiktokstudio/upload?tab=photo' });
+    (w as unknown as Record<string, unknown>).__Creator_Center_Context__ = CTX;
+    (w as unknown as Record<string, unknown>).__ttUploadRecords = [];
+    w.document.body.innerHTML = '<input type="file" multiple>';
+    const names = ['window', 'document', 'location', 'HTMLInputElement', 'HTMLTextAreaElement', 'InputEvent', 'Event'] as const;
+    new Function(...names, `return (${COMPOSE.trim().replace(/;$/, '')})`)(w, w.document, w.location, w.HTMLInputElement, w.HTMLTextAreaElement, w.InputEvent, w.Event);
+    const input = w.document.querySelector('input')!;
+    Object.defineProperty(input, 'files', { value: [new w.File(['hello'], 'seam-1.jpg')], configurable: true });
+    input.dispatchEvent(new w.Event('change', { bubbles: true }));
+    const up = await (w as unknown as { __ttCompose: { uploads(): Promise<unknown[]> } }).__ttCompose.uploads();
+    expect(up.length).toBe(1);
+});
+
+test('photo description is written with a textInput event, never execCommand (seen live: execCommand crashes the photo editor)', async () => {
+    const w = new Window({ url: 'https://www.tiktok.com/tiktokstudio/upload/post/photo' });
+    (w as unknown as Record<string, unknown>).__Creator_Center_Context__ = CTX;
+    w.document.body.innerHTML = `<div data-e2e="caption_container"><input maxlength="90"><div contenteditable="true" class="public-DraftEditor-content"><div data-contents="true"><div data-block="true" data-offset-key="a-0-0"><div data-offset-key="a-0-0"><span data-offset-key="a-0-0"><br data-text="true"></span></div></div></div></div></div>`;
+    const doc = w.document as unknown as { execCommand: unknown; createEvent: unknown };
+    let execCalls = 0;
+    doc.execCommand = () => {
+        execCalls++;
+        return true;
+    };
+    doc.createEvent = (t: string) => {
+        if (t !== 'TextEvent') throw new Error('unexpected');
+        const e = new w.Event('textInput', { bubbles: true, cancelable: true }) as unknown as Record<string, unknown>;
+        e.initTextEvent = (_type: string, _b: boolean, _c: boolean, _v: unknown, data: string) => (e.data = data);
+        return e;
+    };
+    const ed = w.document.querySelector('[contenteditable]')!;
+    ed.addEventListener('textInput', (e) => {
+        (ed.querySelector('span[data-offset-key]') as unknown as { innerHTML: string }).innerHTML = `<span data-text="true">${(e as unknown as { data: string }).data}</span>`;
+        e.preventDefault();
+    });
+    const names = ['window', 'document', 'location', 'HTMLInputElement', 'HTMLTextAreaElement', 'InputEvent', 'Event'] as const;
+    new Function(...names, `return (${COMPOSE.trim().replace(/;$/, '')})`)(w, w.document, w.location, w.HTMLInputElement, w.HTMLTextAreaElement, w.InputEvent, w.Event);
+    const api = (w as unknown as { __ttCompose: { fill(s: unknown): Promise<unknown>; state(): { description: string } } }).__ttCompose;
+    await api.fill({ kind: 'photo', title: 'T', description: 'private carousel test', privacy: 'only_me' }).catch(() => {});
+    expect(execCalls).toBe(0);
+    expect(api.state().description).toBe('private carousel test');
+});
+
+test('a photo row is matched by its description (seen live: Studio lists a photo post by its description, not its title)', () => {
+    const d = { settings: { kind: 'photo', title: 'publish test (plugin), photos', description: 'private carousel test', privacy: 'only_me' } } as Pick<Draft, 'settings'>;
+    const start = new Date(2026, 10, 16, 12, 59, 6).toISOString();
+    const row = { text: 'private carousel test', privacy: 'only_me' as const, underReview: false, time: 'Nov 16, 12:59 PM' };
+    expect(matchRow(d, start, [row])).toEqual(row);
+    // the title alone is not what Studio shows
+    expect(matchRow(d, start, [{ ...row, text: 'publish test (plugin), photos' }])).toBeNull();
+    // under review rows carry no time yet: never matched
+    expect(matchRow(d, start, [{ text: 'private carousel test', privacy: 'only_me' as const, underReview: true }])).toBeNull();
 });

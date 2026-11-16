@@ -1,11 +1,13 @@
 // In-page composer helper for TikTok Studio upload, run in the owner's own Chrome tab (claude-in-chrome
-// javascript_tool) AFTER the file(s) were added to the page. It fills the approved settings and reads back
-// what the page shows. It NEVER clicks Post, Save draft or Discard: the agent clicks Post itself, once,
+// javascript_tool) BEFORE the file(s) are added to the page (it records the bytes handed to the file input;
+// a page reload loses it, so run it again and re-add the files). It fills the approved settings and reads
+// back what the page shows. It NEVER clicks Post, Save draft or Discard: the agent clicks Post itself, once,
 // only after `publish begin` accepted the page state.
 //
-//   1. Run this file's text                   → installs window.__ttCompose, returns state()
-//   2. await window.__ttCompose.fill(settings) → settings = draft.settings from `publish prepare`
-//   3. JSON.stringify(window.__ttCompose.state()) → save to a file → `publish begin --page-state <file>`
+//   1. Run this file's text                   → installs window.__ttCompose, returns a short summary
+//   2. Add the approved file(s) to the page's file input, in the approved order
+//   3. await window.__ttCompose.fill(settings) → settings = draft.settings from `publish prepare`
+//   4. JSON.stringify(await window.__ttCompose.snapshot()) → save to a file → `publish begin --page-state <file>`
 //
 // Locators come from docs/reviews/recon-upload.md (data-e2e caption_container, video_visibility_container,
 // post_video_button; Post found by its text on the photo editor). Anything not found is reported as
@@ -55,6 +57,28 @@
             el.textContent = value;
             el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
         }
+    };
+    // Seen live 2026-11-16: the photo description is a Draft.js editor, and ANY execCommand('insertText') in
+    // it (even at a collapsed caret) crashes React and the whole photo editor. Draft takes text from the
+    // 'textInput' event (React's onBeforeInput) and renders it itself, so that is the only write used here.
+    // No DOM fallback: writing the DOM under Draft breaks it the same way; a failed write throws instead.
+    const setDraft = async (el, value) => {
+        el.focus();
+        const sel = window.getSelection && window.getSelection();
+        const leaves = all('span[data-offset-key]', el).filter((s) => !s.querySelector('span[data-offset-key]'));
+        if (sel && document.createRange && leaves.length && text(el)) {
+            const r = document.createRange();
+            r.setStart(leaves[0], 0);
+            r.setEnd(leaves[leaves.length - 1], leaves[leaves.length - 1].childNodes.length);
+            sel.removeAllRanges();
+            sel.addRange(r);
+            await sleep(150); // let Draft read the selection (selectionchange) before replacing it
+        }
+        const ev = document.createEvent('TextEvent');
+        ev.initTextEvent('textInput', true, true, window, value);
+        el.dispatchEvent(ev);
+        await sleep(150);
+        if (text(el) !== value.replace(/\s+/g, ' ').trim()) throw new Error('description did not take the text (Draft editor); nothing else was written');
     };
     const setInput = (el, value) => {
         const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -106,7 +130,7 @@
         if (st) return (text(st).match(/Uploaded/gi) || []).length;
         const n = all('input[type="file"]').reduce((s, i) => s + (i.files ? i.files.length : 0), 0);
         if (n) return n;
-        return kind() === 'video' ? (document.querySelector('video') ? 1 : 0) : all('[data-e2e*="photo"] img, [class*="image-item" i] img').length;
+        return kind() === 'video' ? (document.querySelector('video') ? 1 : 0) : all('img[class*="photoItemImage"], [data-e2e*="photo"] img, [class*="image-item" i] img').length;
     };
     // File names shown by the upload status (leaf text that ends in an extension), in page order.
     const fileNames = () => {
@@ -161,7 +185,7 @@
             }
             const ed = editable()[0];
             if (ed) {
-                setEditable(ed, settings.description || '');
+                await setDraft(ed, settings.description || '');
                 done.push('description');
             }
         }
@@ -197,6 +221,73 @@
         return { filled: done, state: state() };
     }
 
-    window.__ttCompose = { state, fill };
+
+    // --- Media binding. Seen live 2026-11-16: the photo editor shows no file names and re-encodes the photos
+    // (blob: thumbnails, different bytes). So this records the files handed to ANY file input on the page
+    // (exact sha256 + a 256-bit dHash), which needs compose.js to run BEFORE the files are added, and
+    // fingerprints each editor thumbnail so the CLI can check that photo i looks like approved photo i.
+    const hex = (buf) => Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, '0')).join('');
+    // Hashes are printed in groups of 8 (the browser tool masks long hex runs); the CLI drops the spaces.
+    const groups = (h) => (h ? h.match(/.{1,8}/g).join(' ') : h);
+    async function dhash(blob) {
+        if (typeof createImageBitmap !== 'function') return null;
+        try {
+            const bm = await createImageBitmap(blob);
+            const c = document.createElement('canvas');
+            c.width = 17;
+            c.height = 16;
+            const g2 = c.getContext('2d');
+            if (!g2) return null;
+            g2.drawImage(bm, 0, 0, 17, 16);
+            const d = g2.getImageData(0, 0, 17, 16).data;
+            const g = (x, y) => {
+                const k = (y * 17 + x) * 4;
+                return d[k] * 0.299 + d[k + 1] * 0.587 + d[k + 2] * 0.114;
+            };
+            let out = '';
+            for (let y = 0; y < 16; y++)
+                for (let q = 0; q < 4; q++) {
+                    let v = 0;
+                    for (let b = 0; b < 4; b++) v = (v << 1) | (g(q * 4 + b, y) > g(q * 4 + b + 1, y) ? 1 : 0);
+                    out += v.toString(16);
+                }
+            return out;
+        } catch {
+            return null;
+        }
+    }
+    const record = async (f) => ({ name: f.name, bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())), dhash: await dhash(f) });
+    // The listener has its own flag: a records array left on the page (or set by hand) must not stop it registering.
+    if (!Array.isArray(window.__ttUploadRecords)) window.__ttUploadRecords = [];
+    if (!window.__ttUploadListener) {
+        window.__ttUploadListener = true;
+        document.addEventListener(
+            'change',
+            (e) => {
+                const t = e.target;
+                if (t && t.type === 'file' && t.files && t.files.length) for (const f of Array.from(t.files)) window.__ttUploadRecords.push(record(f));
+            },
+            true,
+        );
+    }
+    const uploads = () => Promise.all(window.__ttUploadRecords);
+    const thumbImgs = () => all('img[class*="photoItemImage"]');
+    async function snapshot() {
+        const s = state();
+        s.uploads = (await uploads()).map((u) => ({ bytes: u.bytes, sha256: groups(u.sha256), dhash: groups(u.dhash) }));
+        if (s.kind === 'photo')
+            s.thumbs = await Promise.all(
+                thumbImgs().map(async (i) => {
+                    try {
+                        return { dhash: groups(await dhash(await (await fetch(i.src)).blob())) };
+                    } catch {
+                        return { dhash: null };
+                    }
+                }),
+            );
+        return s;
+    }
+
+    window.__ttCompose = { state, fill, snapshot, uploads };
     return state();
 })();

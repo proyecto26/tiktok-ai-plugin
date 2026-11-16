@@ -58,30 +58,42 @@ page means stop: write nothing more, close the tab and tell the user.
 ## Publishing (video or photo post, private by default)
 
 The CLI never posts by itself. It binds the owner's approval to the exact local bytes (sha256) and settings,
-records the attempt before Post is clicked, and settles the outcome. The page itself is checked by file name,
-caption, privacy and toggles, not by the uploaded bytes, and the cover is left at TikTok's default: before
-Post, look at the preview (right media, right order) and that no verification is on the page.
-Variants not yet verified live (photo, non-private, AI label, disclosure; `prepare` lists them as
+records the attempt before Post is clicked, and settles the outcome. The page itself is checked by caption
+(or title and description), privacy and toggles; a video by its file name; photos by the exact bytes handed
+to the page's file input plus a visual fingerprint of each editor thumbnail, in order (the photo editor shows
+no file names and re-encodes the images, so what the editor holds is bound only by that fingerprint: a
+photo dropped in by drag and drop is never recorded, and a close re-edit of an approved photo could pass).
+The cover is left at TikTok's default: before Post, look at the
+preview (right media, right order) and that no verification is on the page.
+Variants not yet verified live (non-private, AI label, disclosure; `prepare` lists them as
 `experimental`) need `begin --experimental`, and only after telling the owner. The composer is driven in **your normal Chrome**.
 
 1. `publish prepare --video clip.mp4 --caption "..."` (or `--photos a.jpg,b.jpg --title "..." --description "..."`).
    Privacy defaults to `only_me`; `--privacy everyone` also needs `--public`. Toggles: `--no-comments`,
    `--no-reuse`, `--ai-generated`, `--disclose`. It prints the draft and its digest (a dry run).
 2. **Show the draft to the owner** (file name, size, sha256, caption, every setting) and wait for an explicit yes.
-3. Open `https://www.tiktok.com/tiktokstudio/upload` (photos: the Photo tab). Add the file(s) with the page's
-   file input; a file marked `manualFilePick` (over 10 MB) is chosen by the owner in the page.
-4. Run the text of `scripts/browser/compose.js`, then `await window.__ttCompose.fill(<draft.settings>)`, then
-   save `JSON.stringify(window.__ttCompose.state())` to a file **right before** step 5 (a state older than
-   2 minutes is refused). Copy it verbatim; never edit or fill in a field by hand.
+3. Open `https://www.tiktok.com/tiktokstudio/upload` (photos: the Photo tab) and run the text of
+   `scripts/browser/compose.js` **before** adding any file (it records the bytes the file input receives; a
+   page reload loses it: run it again and add the files again). Then add the file(s), in the approved order,
+   with the page's file input; a file marked `manualFilePick` (over 10 MB) is chosen by the owner in the page.
+   Photos: if the editor already holds other photos, remove them so it shows exactly the approved ones.
+   Add photos only through the file input, never by drag and drop. Every file added after compose.js ran
+   stays recorded even if removed later, so a wrong pick means: reload, run compose.js again, start over.
+4. `await window.__ttCompose.fill(<draft.settings>)`, then save
+   `JSON.stringify(await window.__ttCompose.snapshot())` to a file **right before** step 5 (a state older than
+   2 minutes is refused). Copy it verbatim; never edit or fill in a field by hand. Never type into the photo
+   description with other tools: it is a Draft.js editor, and a native text insert crashes the whole editor.
 5. `publish begin --draft <digest> --approve <digest> --page-state <file>`. It refuses on an account signal, a
    changed file, a different digest, a stale state, a verification on the page (it writes the account signal),
-   a toggle compose.js could not read, uploaded file names that differ from the draft, or anything else the
+   a toggle compose.js could not read, uploaded files that differ from the draft (name for a video; bytes,
+   count or thumbnail order for photos), or anything else the
    page shows differently (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post**
    once, in the same tab, without reloading or switching accounts.
 6. Studio moves to `/tiktokstudio/content`. Run `scripts/browser/studio-rows.js`, save the result, then
-   `publish reconcile --attempt <id> --rows <file>` (`processing` while "Content under review", then
-   `published`). A row matches only when its caption AND its time fit the attempt, and only if exactly one
-   row does; otherwise the attempt stays open. If the page crashed or the result is unclear:
+   `publish reconcile --attempt <id> --rows <file>`. A row matches only when its text (video: caption;
+   photos: the description, which is what Studio lists) AND its time fit the attempt, and only if exactly one
+   row does; otherwise the attempt stays open. While "Content under review" Studio shows no date, so the
+   attempt stays open: reload Studio content after a few minutes and reconcile again. If the page crashed or the result is unclear:
    `publish finish --attempt <id> --outcome unknown`. `finish --outcome published|rejected` needs `--by-owner`
    and is recorded as an owner override (the owner checked Studio themselves). Disclosure toggles are not
    shown in the Studio list, so they are verified before Post (step 5), not after.

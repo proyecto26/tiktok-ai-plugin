@@ -150,7 +150,8 @@ export async function verifyDraft(d: Draft): Promise<void> {
  * --experimental until it has passed). Add a variant here only with its evidence in docs/reviews/.
  *   video-private: docs/reviews/evidence-publish-live.md (2026-11-16)
  */
-export const VERIFIED_VARIANTS: readonly string[] = ['video-private'];
+// Passed live: video-private (attempt 20261116130631-cd382e), photo carousel, private (20261116175906-aea64e).
+export const VERIFIED_VARIANTS: readonly string[] = ['video-private', 'photo'];
 
 /** The variants a draft exercises that have not passed live yet; non-empty means `begin` needs --experimental. */
 export function experimentalVariants(s: PostSettings): string[] {
