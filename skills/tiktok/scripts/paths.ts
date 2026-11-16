@@ -49,3 +49,8 @@ export function resolveCapturesDir(): string {
 export function resolveOutputDir(): string {
     return override('TIKTOK_OUTPUT_DIR') ?? path.join(resolveDataDir(), 'outputs');
 }
+
+/** Publish drafts and attempt records (never committed). */
+export function resolvePendingDir(): string {
+    return path.join(resolveDataDir(), 'pending');
+}
