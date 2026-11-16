@@ -147,7 +147,7 @@ export async function allAttempts(): Promise<OpenAttempt[]> {
     return (await readAll()).reverse();
 }
 
-export async function beginAttempt(a: { account: string; digest: string }): Promise<Attempt> {
+export async function beginAttempt(a: { account: string; digest: string; detail?: string }): Promise<Attempt> {
     return withLock(async () => {
         const open = (await readAll()).filter(isOpen);
         if (open.length) {
@@ -156,7 +156,7 @@ export async function beginAttempt(a: { account: string; digest: string }): Prom
         }
         const now = new Date().toISOString();
         const id = `${now.replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomBytes(3).toString('hex')}`;
-        const attempt: Attempt = { id, account: a.account, digest: a.digest, state: 'submitted', startedAt: now, updatedAt: now };
+        const attempt: Attempt = { id, account: a.account, digest: a.digest, state: 'submitted', startedAt: now, updatedAt: now, ...(a.detail ? { detail: a.detail } : {}) };
         await writeAttempt(attempt);
         return attempt;
     });

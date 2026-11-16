@@ -17,9 +17,10 @@ ComfyUI, Homebrew and open-source packages running on your machine.
 Every write is a dry run until you approve the exact post. There are no like, follow or DM
 commands, by design.
 
-> **Status: phase 1.** The `tiktok` operator (login and reads) is being built first; the other
-> skills below are planned and marked so. Publishing is added only after the upload flow has been
-> verified on a real account.
+> **Status: phase 2.** The `tiktok` operator does login, reads and publishing. A private video has
+> been published end to end on a real account; photo posts, non-private posts, the AI label and the
+> disclosure toggle still need `--experimental` until each has passed live. The other skills below are
+> planned and marked so.
 
 ---
 
@@ -32,8 +33,10 @@ commands, by design.
   from Cookie-Editor JSON, `cookies.txt` or a raw `Cookie:` header.
 - **Reads**: profiles, videos, a single video and its comments, from the data the web pages embed
   first. Every result says which source answered and whether it is complete.
-- **Publishing** *(planned)*: videos and photo posts through TikTok Studio's own web flow, shown as
-  a dry run first; unclear outcomes are recorded as pending so nothing is posted twice.
+- **Publishing**: videos and photo posts through TikTok Studio's own web flow in your Chrome. Every
+  post is a dry run first and needs your yes; the attempt is recorded before Post is clicked, and an
+  unclear outcome stays open so nothing is posted twice. Private video is verified live; other
+  variants are `--experimental`.
 
 ### ✍️ **2. TikTok Content (The Writer)** *(planned)*
 *Hooks, scripts, captions and plans that sound like a person.* Hook scoring, caption linting,
@@ -181,8 +184,10 @@ bash ../scripts/check-manifests.sh
 
 ## 🚧 Known Limitations
 
-- **Publishing is experimental.** `publish` drives TikTok Studio's composer in your own Chrome; the composer
-  locators beyond the recon are checked on the first live post. Files over 10 MB are picked in the page by you.
+- **Publishing is partly experimental.** Only the private video has passed live; photo posts, non-private
+  posts, the AI label and disclosure need `--experimental`. The page is checked against the approval by file
+  name, caption, privacy and toggles, not by the uploaded bytes, and the cover is left at TikTok's default:
+  look at the preview before Post. Files over 10 MB are picked in the page by you.
 - **No hashtag or search reads yet**, and no scheduling (Studio blocks scheduling for private posts).
 - **Private endpoints change.** Field names and page data can move; every read reports its source.
 - **No TikTok analytics API.** Watch time, traffic sources and follower growth live in TikTok

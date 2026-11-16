@@ -5,18 +5,18 @@ import { TtError } from '../client.ts';
 import { resolvePendingDir } from '../paths.ts';
 import { ensurePrivateDir } from '../secure.ts';
 import { assertNoSignal, writeSignal } from '../signal.ts';
-import { type Draft, normalizeAccount, type PostSettings, type Privacy, prepareDraft, verifyDraft } from './draft.ts';
+import { type Draft, experimentalVariants, normalizeAccount, type PostSettings, type Privacy, prepareDraft, verifyDraft } from './draft.ts';
 import { allAttempts, beginAttempt, getAttempt, markOutcome, type Outcome, openAttempts } from './ledger.ts';
 import { compareState, matchRow, type PageState, type Rows } from './reconcile.ts';
 
-export const PUBLISH_BOOLEANS = ['public', 'no-comments', 'no-reuse', 'ai-generated', 'disclose', 'by-owner'] as const;
+export const PUBLISH_BOOLEANS = ['public', 'no-comments', 'no-reuse', 'ai-generated', 'disclose', 'by-owner', 'experimental'] as const;
 
 export const PUBLISH_HELP = `Publishing (TikTok Studio composer in your own Chrome; nothing is posted by the CLI itself):
   publish prepare (--video <f> | --photos <a,b,..>) [--caption s | --title s --description s]
                   [--privacy only_me|friends|everyone|follow_back] [--public]
                   [--no-comments] [--no-reuse] [--ai-generated] [--disclose]
                                          Dry run: hashes the media, prints the draft and its digest
-  publish begin --draft <digest> --approve <digest> --page-state <file>
+  publish begin --draft <digest> --approve <digest> --page-state <file> [--experimental]
                                          After the owner's yes and compose.js state(): records the attempt
   publish finish --attempt <id> --outcome processing|unknown [--post-id id]
   publish finish --attempt <id> --outcome published|rejected --by-owner   Owner checked Studio by hand
@@ -77,6 +77,7 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             out({
                 dryRun: true,
                 draft,
+                experimental: experimentalVariants(draft.settings),
                 savedTo: file,
                 nextStep: 'Show this draft to the owner. Only after an explicit yes: open TikTok Studio upload, add the file(s), run compose.js fill + state, save the state, then publish begin --draft <digest> --approve <digest> --page-state <file>.',
                 ...(draft.media.some((m) => m.manualFilePick) ? { manualFilePick: 'A file is over 10 MB: the owner selects it in the page; the rest stays automated.' } : {}),
@@ -88,6 +89,8 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             const draft = await loadDraft(str(flags.draft));
             if (str(flags.approve) !== draft.digest) throw new TtError('approval_mismatch', '--approve must be the exact digest the owner approved (from publish prepare).');
             await verifyDraft(draft);
+            const exp = experimentalVariants(draft.settings);
+            if (exp.length && flags.experimental !== true) throw new Error(`This post uses variants that have not passed a live run yet (${exp.join(', ')}). Tell the owner, and only with their yes pass --experimental.`);
             const state = await readJson<PageState>(str(flags['page-state']), '--page-state');
             if (state?.challenge === true) {
                 await writeSignal('challenge', 'publish begin: verification on the upload page');
@@ -95,7 +98,7 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             }
             const diff = compareState(draft, state);
             if (diff.length) throw new TtError('page_mismatch', `The page does not show the approved post: ${diff.join('; ')}. Fix the page (compose.js fill) and read the state again; do not click Post.`);
-            const attempt = await beginAttempt({ account: draft.account, digest: draft.digest });
+            const attempt = await beginAttempt({ account: draft.account, digest: draft.digest, ...(exp.length ? { detail: `experimental: ${exp.join(', ')}` } : {}) });
             out({ attempt, nextStep: `Click Post now (once). Then: publish finish --attempt ${attempt.id} --outcome ... or publish reconcile --attempt ${attempt.id} --rows <studio-rows.json>. If the page crashes or is unclear: --outcome unknown, never post again.` });
             return 0;
         }

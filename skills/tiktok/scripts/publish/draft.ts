@@ -144,3 +144,19 @@ export async function verifyDraft(d: Draft): Promise<void> {
         if (now.sha256 !== m.sha256 || now.bytes !== m.bytes) throw new TtError('approval_mismatch', `${path.basename(m.path)} changed since the draft was prepared. Prepare it again and get a new approval.`);
     }
 }
+
+/**
+ * Post variants that have passed a live run (design §4: the first live write of each type needs
+ * --experimental until it has passed). Add a variant here only with its evidence in docs/reviews/.
+ *   video-private: docs/reviews/evidence-publish-live.md (2026-11-16)
+ */
+export const VERIFIED_VARIANTS: readonly string[] = ['video-private'];
+
+/** The variants a draft exercises that have not passed live yet; non-empty means `begin` needs --experimental. */
+export function experimentalVariants(s: PostSettings): string[] {
+    const v = [s.kind === 'photo' ? 'photo' : 'video-private'];
+    if (s.privacy !== 'only_me') v.push('non-private');
+    if (s.aiGenerated) v.push('ai-label');
+    if (s.discloseContent) v.push('disclosure');
+    return v.filter((x) => !VERIFIED_VARIANTS.includes(x));
+}

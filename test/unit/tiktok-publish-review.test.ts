@@ -213,3 +213,39 @@ describe('verifier follow-ups', () => {
         expect(s.challenge).toBe(false);
     });
 });
+
+describe('experimental gate (design §4: first live write of each type needs --experimental)', () => {
+    const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+    const MAIN = path.resolve(import.meta.dir, '../../skills/tiktok/scripts/main.ts');
+    const TRAP = path.resolve(import.meta.dir, 'fetch-trap.ts');
+    let dir: string;
+    let env: NodeJS.ProcessEnv;
+    beforeEach(() => {
+        dir = mkdtempSync(path.join(os.tmpdir(), 'ttexp-'));
+        env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc' };
+    });
+    const run = (args: string[]) => JSON.parse(spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' }).stdout || '{}');
+    const put = (name: string, v: unknown) => {
+        const p = path.join(dir, name);
+        writeFileSync(p, typeof v === 'string' ? v : JSON.stringify(v));
+        return p;
+    };
+    test('prepare lists the unverified variants; begin refuses them without --experimental', () => {
+        const p = run(['publish', 'prepare', '--photos', `${put('a.jpg', 'a')},${put('b.jpg', 'b')}`, '--title', 'T', '--description', 'D']);
+        expect(p.experimental).toEqual(['photo']);
+        const d = p.draft;
+        const state = put('ps.json', { ...page({ kind: 'photo', title: 'T', description: 'D', files: 2, fileNames: ['a.jpg', 'b.jpg'], capturedAt: new Date().toISOString() }), caption: undefined });
+        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state]).error.message).toMatch(/(photo).*--experimental/);
+        expect(run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', state, '--experimental']).attempt).toMatchObject({ state: 'submitted', detail: expect.stringContaining('experimental: photo') });
+    });
+    test('the verified private video needs no flag', () => {
+        const p = run(['publish', 'prepare', '--video', put('seam-story.mp4', 'v'), '--caption', 'c']);
+        expect(p.experimental).toEqual([]);
+        const state = put('ps.json', page({ caption: 'c', capturedAt: new Date().toISOString() }));
+        expect(run(['publish', 'begin', '--draft', p.draft.digest, '--approve', p.draft.digest, '--page-state', state]).attempt.state).toBe('submitted');
+    });
+    test('public, AI label and disclosure are each unverified', () => {
+        const p = run(['publish', 'prepare', '--video', put('v.mp4', 'v'), '--caption', 'c', '--privacy', 'everyone', '--public', '--ai-generated', '--disclose']);
+        expect(p.experimental).toEqual(['non-private', 'ai-label', 'disclosure']);
+    });
+});

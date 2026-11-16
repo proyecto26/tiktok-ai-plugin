@@ -57,8 +57,12 @@ page means stop: write nothing more, close the tab and tell the user.
 
 ## Publishing (video or photo post, private by default)
 
-The CLI never posts by itself. It binds the owner's approval to the exact bytes and settings, records the
-attempt before Post is clicked, and settles the outcome. The composer is driven in **your normal Chrome**.
+The CLI never posts by itself. It binds the owner's approval to the exact local bytes (sha256) and settings,
+records the attempt before Post is clicked, and settles the outcome. The page itself is checked by file name,
+caption, privacy and toggles, not by the uploaded bytes, and the cover is left at TikTok's default: before
+Post, look at the preview (right media, right order) and that no verification is on the page.
+Variants not yet verified live (photo, non-private, AI label, disclosure; `prepare` lists them as
+`experimental`) need `begin --experimental`, and only after telling the owner. The composer is driven in **your normal Chrome**.
 
 1. `publish prepare --video clip.mp4 --caption "..."` (or `--photos a.jpg,b.jpg --title "..." --description "..."`).
    Privacy defaults to `only_me`; `--privacy everyone` also needs `--public`. Toggles: `--no-comments`,
