@@ -49,7 +49,7 @@ describe('profile', () => {
         expect(() => profileFromCapture(cap({ scope: {} }))).toThrow(expect.objectContaining({ kind: 'unexpected_page' }));
     });
     test('private account is reported, not an error', () => {
-        expect(profileFromCapture(cap({ scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ })).data.private).toBe(true);
+        expect(profileFromCapture(cap({ url: 'https://www.tiktok.com/@someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ })).data.private).toBe(true);
     });
 });
 
@@ -84,7 +84,7 @@ describe('videos', () => {
         expect(r).toMatchObject({ source: 'page', complete: false, reason: 'signed_list_api' });
     });
     test('private account with nothing visible → private', () => {
-        expect(() => videosFromCapture(cap({ scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ }), {})).toThrow(expect.objectContaining({ kind: 'private' }));
+        expect(() => videosFromCapture(cap({ url: 'https://www.tiktok.com/@someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ }), {})).toThrow(expect.objectContaining({ kind: 'private' }));
     });
 });
 
@@ -119,6 +119,48 @@ describe('single video and comments', () => {
     });
 });
 
+describe('stale or mixed captures (final review fixes)', () => {
+    const comments = (itemId: string | undefined, cid: string, extra: Record<string, unknown> = {}) => ({
+        path: '/api/comment/list/',
+        ...(itemId ? { itemId } : {}),
+        body: { status_code: 0, has_more: 0, comments: [{ cid, text: `on post ${itemId}`, digg_count: 0, create_time: 1, reply_comment_total: 0, user: { unique_id: 'u' } }], ...extra },
+    });
+    const vurl = (id: string) => `https://www.tiktok.com/@jdnichollsc/video/${id}`;
+
+    test('comments keep only the pages of the post in the URL', () => {
+        const r = commentsFromCapture(cap({ url: vurl('222'), responses: [comments('111', 'a'), comments('222', 'b')] }), {});
+        expect(r.data.map((x) => x.id)).toEqual(['b']);
+    });
+    test('a capture that dropped answers says so instead of signed_comment_api', () => {
+        const r = commentsFromCapture(cap({ url: vurl('222'), responses: [comments('111', 'a')], dropped: 3 }), {});
+        expect(r).toMatchObject({ data: [], complete: false, reason: 'capture_full' });
+    });
+    test('a video-detail scope for another post is not returned for the URL post', () => {
+        const item = fx('item-list-video.redacted.json').itemList[0];
+        const c = cap({ url: vurl('222'), scope: { 'webapp.video-detail': { statusCode: 0, itemInfo: { itemStruct: item } } } });
+        expect(() => videoFromCapture(c)).toThrow(expect.objectContaining({ kind: 'not_found' }));
+    });
+    test('profile data for another account than the URL is stale → unexpected_page', () => {
+        expect(() => profileFromCapture(cap({ url: 'https://www.tiktok.com/@other', scope: profileScope() }))).toThrow(/reload/i);
+        expect(profileFromCapture(cap({ url: 'https://www.tiktok.com/@JDNichollsc', scope: profileScope() })).data.username).toBe('jdnichollsc');
+    });
+    test('an item_list page with an error status is not the end of the list', () => {
+        const bad = { path: '/api/post/item_list/', body: { statusCode: 10201, itemList: [] } };
+        expect(videosFromCapture(cap({ responses: [listPage(['1', '2'], true), bad] }), { limit: 10 })).toMatchObject({ complete: false, reason: 'api_error' });
+    });
+    test('a comment page with an error status is not the end of the list', () => {
+        const r = commentsFromCapture(cap({ url: vurl('222'), responses: [comments('222', 'b', { status_code: 5, has_more: 0 })] }), {});
+        expect(r).toMatchObject({ complete: false, reason: 'api_error' });
+    });
+    test('video on a capture with no post id in the URL → unexpected_page, not an arbitrary post', () => {
+        const c = cap({ responses: [listPage(['1', '2'], false)] });
+        expect(() => videoFromCapture(c)).toThrow(expect.objectContaining({ kind: 'unexpected_page' }));
+    });
+    test('a capture that saw a challenge is refused with kind challenge', () => {
+        expect(() => parseCapture(JSON.stringify(cap({ challenge: true })))).toThrow(expect.objectContaining({ kind: 'challenge' }));
+    });
+});
+
 describe('CLI read commands (no network)', () => {
     const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
     const { mkdtempSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
@@ -133,6 +175,25 @@ describe('CLI read commands (no network)', () => {
         const r = run(['videos', '--capture', file, '--limit', '1']);
         expect(r.status).toBe(0);
         expect(JSON.parse(r.stdout)).toMatchObject({ source: 'api', complete: true, data: [{ id: '7606492896908299528' }] });
+    });
+    test('a challenge capture writes the account signal; later reads are blocked', async () => {
+        const { readSignal, clearSignal } = await import('../../skills/tiktok/scripts/signal.ts');
+        const dir = mkdtempSync(path.join(os.tmpdir(), 'ttcap-'));
+        const bad = path.join(dir, 'bad.json');
+        const good = path.join(dir, 'good.json');
+        writeFileSync(bad, JSON.stringify(cap({ challenge: true })));
+        writeFileSync(good, JSON.stringify(cap({ responses: [{ path: '/api/post/item_list/', body: fx('item-list-video.redacted.json') }] })));
+        try {
+            const r = run(['videos', '--capture', bad]);
+            expect(r.status).toBe(1);
+            expect(JSON.parse(r.stdout).error.kind).toBe('challenge');
+            expect((await readSignal())?.kind).toBe('challenge');
+            const g = run(['videos', '--capture', good]);
+            expect(g.status).toBe(1);
+            expect(JSON.parse(g.stdout).error.kind).toBe('blocked_by_signal');
+        } finally {
+            await clearSignal();
+        }
     });
     test('missing --capture is an error with exit 1', () => {
         const r = run(['profile']);

@@ -12,10 +12,14 @@ export interface Capture {
     capturedAt: string;
     /** `__DEFAULT_SCOPE__` of the page's `__UNIVERSAL_DATA_FOR_REHYDRATION__` script. */
     scope: Record<string, unknown>;
-    /** Answers of the page's own /api/ requests, in the order they arrived. */
-    responses: { path: string; body: unknown }[];
+    /** Answers of the page's own /api/ requests, in the order they arrived. `itemId` is the post a comment page belongs to. */
+    responses: { path: string; itemId?: string; body: unknown }[];
     /** How many times the page was scrolled to load more (the request budget is 10). */
     scrolls: number;
+    /** Answers the hook could not keep because its response cap was full. */
+    dropped?: number;
+    /** The page showed a captcha or verification, or a kept request answered with one. */
+    challenge?: boolean;
 }
 
 export interface ReadResult<T> {
@@ -96,7 +100,8 @@ export function parseCapture(text: string): Capture {
         // fall through
     }
     if (origin !== 'https://www.tiktok.com') throw new TtError('unexpected_page', `The capture is not from https://www.tiktok.com (${c.url}).`);
-    return { ...c, scope: obj(c.scope), responses: Array.isArray(c.responses) ? c.responses : [], scrolls: num(c.scrolls) };
+    if (c.challenge === true) throw new TtError('challenge', 'TikTok showed a captcha or verification while capturing. Solve it in the browser, then run `resume`.');
+    return { ...c, scope: obj(c.scope), responses: Array.isArray(c.responses) ? c.responses : [], scrolls: num(c.scrolls), dropped: num(c.dropped) };
 }
 
 function checkStatus(detail: Obj, what: string): void {
@@ -105,11 +110,18 @@ function checkStatus(detail: Obj, what: string): void {
     if (code !== 0) throw new TtError('unexpected_page', `${what}: TikTok answered statusCode ${code} (${str(detail.statusMsg)}).`);
 }
 
+const postIdOf = (c: Capture): string | undefined => c.url.match(/\/(?:video|photo)\/(\d+)/)?.[1];
+const handleOf = (c: Capture): string | undefined => c.url.match(/tiktok\.com\/@([^/?#]+)/)?.[1]?.toLowerCase();
+
 function userDetail(c: Capture): Obj {
     const d = c.scope['webapp.user-detail'];
     if (!d) throw new TtError('unexpected_page', 'The page has no profile data (webapp.user-detail). Was it a WAF, login or error page?');
     const detail = obj(d);
     checkStatus(detail, 'Profile');
+    // The embedded data is the first page TikTok rendered; after an in-page route change it describes that page.
+    const shown = str(obj(obj(detail.userInfo).user).uniqueId).toLowerCase();
+    const wanted = handleOf(c);
+    if (shown && wanted && shown !== wanted) throw new TtError('unexpected_page', `The page data is for @${shown}, not @${wanted}. Reload the profile page, then capture again.`);
     return detail;
 }
 
@@ -182,8 +194,10 @@ function safeJson(s: string): unknown {
     }
 }
 
-function paged<T>(items: T[], limit: number, hasMore: boolean, scrolls: number): Pick<ReadResult<T[]>, 'data' | 'complete' | 'reason'> {
+function paged<T>(items: T[], limit: number, hasMore: boolean, scrolls: number, failed = false): Pick<ReadResult<T[]>, 'data' | 'complete' | 'reason'> {
     if (items.length >= limit) return { data: items.slice(0, limit), complete: true };
+    // A page TikTok answered with an error status is not the end of the list.
+    if (failed) return { data: items, complete: false, reason: 'api_error' };
     if (!hasMore) return { data: items, complete: true };
     return { data: items, complete: false, reason: scrolls >= SCROLL_BUDGET ? 'request_budget' : 'not_scrolled_far_enough' };
 }
@@ -203,7 +217,8 @@ export function videosFromCapture(c: Capture, opts: { limit?: number }): ReadRes
             }
         }
         const last = pages[pages.length - 1];
-        return { source: 'api', ...paged(items, limit, last.hasMore === true || last.hasMore === 1, c.scrolls) };
+        const failed = pages.some((p) => p.statusCode !== undefined && num(p.statusCode) !== 0);
+        return { source: 'api', ...paged(items, limit, last.hasMore === true || last.hasMore === 1, c.scrolls, failed) };
     }
     const info = obj(userDetail(c).userInfo);
     const embedded = (Array.isArray(info.itemList) ? info.itemList : []).map(normalizeVideo);
@@ -212,26 +227,34 @@ export function videosFromCapture(c: Capture, opts: { limit?: number }): ReadRes
 }
 
 export function videoFromCapture(c: Capture): ReadResult<TtVideo> {
-    const id = c.url.match(/\/(?:video|photo)\/(\d+)/)?.[1];
+    const id = postIdOf(c);
+    if (!id) throw new TtError('unexpected_page', 'The capture URL names no post (/video/<id> or /photo/<id>). Open the post, then capture.');
     const detail = c.scope['webapp.video-detail'];
     if (detail) {
         const d = obj(detail);
-        checkStatus(d, 'Video');
         const item = obj(obj(d.itemInfo).itemStruct);
-        if (str(item.id)) return { source: 'page', data: normalizeVideo(item), complete: true };
+        // The embedded data may describe the first post rendered, not the one in the URL.
+        if (!str(item.id) || str(item.id) === id) {
+            checkStatus(d, 'Video');
+            if (str(item.id)) return { source: 'page', data: normalizeVideo(item), complete: true };
+        }
     }
     for (const p of [...responsesFor(c, /\/api\/(post\/item_list|item\/detail)\/?$/)]) {
         const list = Array.isArray(p.itemList) ? p.itemList : p.itemInfo ? [obj(p.itemInfo).itemStruct] : [];
-        const hit = list.find((i) => !id || str(obj(i).id) === id);
+        const hit = list.find((i) => str(obj(i).id) === id);
         if (hit) return { source: 'api', data: normalizeVideo(hit), complete: true };
     }
-    throw new TtError(id ? 'not_found' : 'unexpected_page', id ? `Video ${id} is not in the capture. Open it from a profile capture that loaded its list page (window.__ttCapture.more()), then run \`video\` on that capture.` : 'The capture has no video.');
+    throw new TtError('not_found', `Video ${id} is not in the capture. Open it from a profile capture that loaded its list page (window.__ttCapture.more()), then run \`video\` on that capture.`);
 }
 
 export function commentsFromCapture(c: Capture, opts: { limit?: number }): ReadResult<TtComment[]> {
     const limit = clampLimit(opts.limit);
-    const pages = responsesFor(c, /\/api\/comment\/list\/?$/);
-    if (!pages.length) return { source: 'page', data: [], complete: false, reason: 'signed_comment_api' };
+    const post = postIdOf(c);
+    // One tab keeps the answers of every post opened in it: keep only this post's pages.
+    const pages = c.responses
+        .filter((r) => /\/api\/comment\/list\/?$/.test(r.path) && (!post || !r.itemId || r.itemId === post))
+        .map((r) => obj(typeof r.body === 'string' ? safeJson(r.body) : r.body));
+    if (!pages.length) return { source: 'page', data: [], complete: false, reason: c.dropped ? 'capture_full' : 'signed_comment_api' };
     const seen = new Set<string>();
     const out: TtComment[] = [];
     for (const p of pages) {
@@ -244,5 +267,6 @@ export function commentsFromCapture(c: Capture, opts: { limit?: number }): ReadR
         }
     }
     const last = pages[pages.length - 1];
-    return { source: 'api', ...paged(out, limit, last.has_more === 1 || last.has_more === true, c.scrolls) };
+    const failed = pages.some((p) => p.status_code !== undefined && num(p.status_code) !== 0);
+    return { source: 'api', ...paged(out, limit, last.has_more === 1 || last.has_more === true, c.scrolls, failed) };
 }

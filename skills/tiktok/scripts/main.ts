@@ -5,7 +5,7 @@ import process from 'node:process';
 import { getTikTokCookiesViaChrome } from './auth.ts';
 import { deleteCookieFile, loadCookies, missingCookies, parseCookieInput, writeCookieMapToDisk } from './cookie-store.ts';
 import { resolveCookiePath, resolveDataDir } from './paths.ts';
-import { clearSignal, readSignal } from './signal.ts';
+import { assertNoSignal, clearSignal, readSignal, writeSignal } from './signal.ts';
 import { TtClient } from './client.ts';
 import { commentsFromCapture, parseCapture, profileFromCapture, videoFromCapture, videosFromCapture } from './read.ts';
 
@@ -140,7 +140,16 @@ export async function main(argv: string[]): Promise<number> {
         case 'comments': {
             const file = flags.capture;
             if (typeof file !== 'string') throw new Error(`${command} needs --capture <file> (made with scripts/browser/capture.js)`);
-            const cap = parseCapture(await readFile(file, 'utf8'));
+            // One account signal stops every transport, browser captures included.
+            await assertNoSignal();
+            const text = await readFile(file, 'utf8');
+            let cap;
+            try {
+                cap = parseCapture(text);
+            } catch (error) {
+                if ((error as { kind?: string }).kind === 'challenge') await writeSignal('challenge', `capture ${command}`);
+                throw error;
+            }
             const limit = typeof flags.limit === 'string' ? Number(flags.limit) : undefined;
             if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) throw new Error('--limit is a positive whole number');
             const result =

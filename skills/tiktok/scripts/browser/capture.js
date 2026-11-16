@@ -14,14 +14,26 @@
     const KEEP = /^\/api\/(post\/item_list|comment\/list|item\/detail)\/?$/;
     const MAX_RESPONSES = 40;
     const MAX_SCROLLS = 10;
+    const CHALLENGE = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"|captcha-verify|secsdk-captcha/;
     const w = window;
     if (!w.__ttCapture) {
-        const state = { responses: [], scrolls: 0 };
+        const state = { responses: [], scrolls: 0, dropped: 0, challenge: false };
         const keep = (url, text) => {
             try {
-                const path = new URL(url, location.href).pathname;
-                if (!KEEP.test(path) || state.responses.length >= MAX_RESPONSES || !text) return;
-                state.responses.push({ path, body: JSON.parse(text) });
+                const u = new URL(url, location.href);
+                if (!KEEP.test(u.pathname) || !text) return;
+                // An API answer that is a captcha or verification page stops every read (account signal).
+                if (CHALLENGE.test(text) || /^\s*</.test(text)) {
+                    state.challenge = true;
+                    return;
+                }
+                if (state.responses.length >= MAX_RESPONSES) {
+                    state.dropped++;
+                    return;
+                }
+                // One tab keeps the answers of every post opened in it; aweme_id says which post a page belongs to.
+                const itemId = u.searchParams.get('aweme_id') || u.searchParams.get('item_id') || u.searchParams.get('itemId') || undefined;
+                state.responses.push({ path: u.pathname, itemId, body: JSON.parse(text) });
             } catch {
                 // not JSON or not ours: ignore
             }
@@ -81,7 +93,7 @@
             },
         };
     };
-    const item = (i) => ({
+    const item = (i) => (!i || typeof i !== 'object' ? {} : {
         id: i.id,
         desc: i.desc,
         createTime: i.createTime,
@@ -117,7 +129,9 @@
             'webapp.user-detail': user(scope['webapp.user-detail']),
             'webapp.video-detail': vd && { statusCode: vd.statusCode, statusMsg: vd.statusMsg, itemInfo: vd.itemInfo && { itemStruct: item(vd.itemInfo.itemStruct || {}) } },
         },
-        responses: s.responses.map((r) => ({ path: r.path, body: body(r.path, r.body) })),
+        responses: s.responses.map((r) => ({ path: r.path, itemId: r.itemId, body: body(r.path, r.body) })),
         scrolls: s.scrolls,
+        dropped: s.dropped,
+        challenge: s.challenge || !!document.querySelector('#captcha-verify-container, #captcha_container, .captcha-verify-container, [class*="secsdk-captcha"]'),
     });
 })();
