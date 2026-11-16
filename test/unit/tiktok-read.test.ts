@@ -156,6 +156,20 @@ describe('stale or mixed captures (final review fixes)', () => {
         const c = cap({ responses: [listPage(['1', '2'], false)] });
         expect(() => videoFromCapture(c)).toThrow(expect.objectContaining({ kind: 'unexpected_page' }));
     });
+    test('item_list pages of another profile (in-page navigation) are not returned', () => {
+        const page = (author: string, ids: string[]) => ({
+            path: '/api/post/item_list/',
+            body: { statusCode: 0, hasMore: false, itemList: ids.map((id) => ({ ...fx('item-list-video.redacted.json').itemList[0], id, author: { uniqueId: author } })) },
+        });
+        const r = videosFromCapture(cap({ url: 'https://www.tiktok.com/@bob', responses: [page('alice', ['1', '2']), page('Bob', ['3'])] }), {});
+        expect(r.data.map((v) => v.id)).toEqual(['3']);
+        expect(r.complete).toBe(true);
+        const none = videosFromCapture(cap({ url: 'https://www.tiktok.com/@bob', scope: {}, responses: [page('alice', ['1'])] }), {});
+        expect(none).toMatchObject({ data: [], complete: false });
+    });
+    test('a capture that saw HTTP 429 is refused with kind rate_limited', () => {
+        expect(() => parseCapture(JSON.stringify(cap({ rateLimited: true })))).toThrow(expect.objectContaining({ kind: 'rate_limited' }));
+    });
     test('a capture that saw a challenge is refused with kind challenge', () => {
         expect(() => parseCapture(JSON.stringify(cap({ challenge: true })))).toThrow(expect.objectContaining({ kind: 'challenge' }));
     });

@@ -147,7 +147,8 @@ export async function main(argv: string[]): Promise<number> {
             try {
                 cap = parseCapture(text);
             } catch (error) {
-                if ((error as { kind?: string }).kind === 'challenge') await writeSignal('challenge', `capture ${command}`);
+                const kind = (error as { kind?: string }).kind;
+                if (kind === 'challenge' || kind === 'rate_limited') await writeSignal(kind, `capture ${command}`);
                 throw error;
             }
             const limit = typeof flags.limit === 'string' ? Number(flags.limit) : undefined;

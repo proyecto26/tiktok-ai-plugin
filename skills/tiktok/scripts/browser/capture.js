@@ -17,11 +17,17 @@
     const CHALLENGE = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"|captcha-verify|secsdk-captcha/;
     const w = window;
     if (!w.__ttCapture) {
-        const state = { responses: [], scrolls: 0, dropped: 0, challenge: false };
-        const keep = (url, text) => {
+        const state = { responses: [], scrolls: 0, dropped: 0, challenge: false, rateLimited: false };
+        const keep = (url, text, status) => {
             try {
                 const u = new URL(url, location.href);
-                if (!KEEP.test(u.pathname) || !text) return;
+                if (!KEEP.test(u.pathname)) return;
+                // HTTP 429 stops every read (account signal), whatever the body says.
+                if (status === 429) {
+                    state.rateLimited = true;
+                    return;
+                }
+                if (!text) return;
                 // An API answer that is a captcha or verification page stops every read (account signal).
                 if (CHALLENGE.test(text) || /^\s*</.test(text)) {
                     state.challenge = true;
@@ -43,7 +49,7 @@
             const res = await origFetch.apply(this, args);
             try {
                 const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-                if (url) res.clone().text().then((t) => keep(url, t), () => {});
+                if (url) res.clone().text().then((t) => keep(url, t, res.status), () => {});
             } catch {
                 // never break the page
             }
@@ -53,7 +59,7 @@
         XMLHttpRequest.prototype.open = function (method, url, ...rest) {
             this.addEventListener('load', () => {
                 try {
-                    if (this.responseType === '' || this.responseType === 'text') keep(String(url), this.responseText);
+                    if (this.responseType === '' || this.responseType === 'text') keep(String(url), this.responseText, this.status);
                 } catch {
                     // ignore
                 }
@@ -63,6 +69,8 @@
         w.__ttCapture = {
             state,
             more() {
+                // A captcha, verification or 429 means stop: no more scrolling on this page.
+                if (state.challenge || state.rateLimited) return { scrolls: state.scrolls, stopped: true };
                 if (state.scrolls >= MAX_SCROLLS) return { scrolls: state.scrolls, budget: 'used up' };
                 state.scrolls++;
                 w.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -132,6 +140,7 @@
         responses: s.responses.map((r) => ({ path: r.path, itemId: r.itemId, body: body(r.path, r.body) })),
         scrolls: s.scrolls,
         dropped: s.dropped,
+        rateLimited: s.rateLimited,
         challenge: s.challenge || !!document.querySelector('#captcha-verify-container, #captcha_container, .captcha-verify-container, [class*="secsdk-captcha"]'),
     });
 })();

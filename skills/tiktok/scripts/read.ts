@@ -20,6 +20,8 @@ export interface Capture {
     dropped?: number;
     /** The page showed a captcha or verification, or a kept request answered with one. */
     challenge?: boolean;
+    /** A kept request was answered with HTTP 429. */
+    rateLimited?: boolean;
 }
 
 export interface ReadResult<T> {
@@ -100,6 +102,7 @@ export function parseCapture(text: string): Capture {
         // fall through
     }
     if (origin !== 'https://www.tiktok.com') throw new TtError('unexpected_page', `The capture is not from https://www.tiktok.com (${c.url}).`);
+    if (c.rateLimited === true) throw new TtError('rate_limited', 'TikTok answered HTTP 429 (too many requests) while capturing. Stop, wait, then run `resume`.', 429);
     if (c.challenge === true) throw new TtError('challenge', 'TikTok showed a captcha or verification while capturing. Solve it in the browser, then run `resume`.');
     return { ...c, scope: obj(c.scope), responses: Array.isArray(c.responses) ? c.responses : [], scrolls: num(c.scrolls), dropped: num(c.dropped) };
 }
@@ -204,7 +207,14 @@ function paged<T>(items: T[], limit: number, hasMore: boolean, scrolls: number, 
 
 export function videosFromCapture(c: Capture, opts: { limit?: number }): ReadResult<TtVideo[]> {
     const limit = clampLimit(opts.limit);
-    const pages = responsesFor(c, /\/api\/post\/item_list\/?$/);
+    const wanted = handleOf(c);
+    // One tab keeps the list pages of every profile opened in it: keep only the URL profile's pages.
+    const all = responsesFor(c, /\/api\/post\/item_list\/?$/);
+    const pages = all.filter((p) => !wanted || (Array.isArray(p.itemList) ? p.itemList : []).every((i) => {
+        const a = str(obj(obj(i).author).uniqueId).toLowerCase();
+        return !a || a === wanted;
+    }));
+    if (all.length && !pages.length && !c.scope['webapp.user-detail']) return { source: 'api', data: [], complete: false, reason: 'signed_list_api' };
     if (pages.length) {
         const seen = new Set<string>();
         const items: TtVideo[] = [];
