@@ -10,6 +10,8 @@ const ROWS = src('studio-rows.js');
 /** Runs an in-page script against a happy-dom page; returns [result, window]. */
 function runIn(script: string, url: string, html: string) {
     const w = new Window({ url });
+    // Studio's own app context is the only account source compose.js trusts (no profile-link fallback)
+    (w as unknown as Record<string, unknown>).__Creator_Center_Context__ = { commonAppContext: { user: { uniqueId: 'JDNichollsc' } } };
     w.document.body.innerHTML = html;
     const names = ['window', 'document', 'location', 'HTMLInputElement', 'HTMLTextAreaElement', 'InputEvent', 'Event'] as const;
     const f = new Function(...names, `return (${script.trim().replace(/;$/, '')})`);

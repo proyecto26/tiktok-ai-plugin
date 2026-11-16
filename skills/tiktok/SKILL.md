@@ -67,16 +67,23 @@ attempt before Post is clicked, and settles the outcome. The composer is driven 
 3. Open `https://www.tiktok.com/tiktokstudio/upload` (photos: the Photo tab). Add the file(s) with the page's
    file input; a file marked `manualFilePick` (over 10 MB) is chosen by the owner in the page.
 4. Run the text of `scripts/browser/compose.js`, then `await window.__ttCompose.fill(<draft.settings>)`, then
-   save `JSON.stringify(window.__ttCompose.state())` to a file.
+   save `JSON.stringify(window.__ttCompose.state())` to a file **right before** step 5 (a state older than
+   2 minutes is refused). Copy it verbatim; never edit or fill in a field by hand.
 5. `publish begin --draft <digest> --approve <digest> --page-state <file>`. It refuses on an account signal, a
-   changed file, a different digest, or a page that shows anything other than the approved post
-   (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post** once.
+   changed file, a different digest, a stale state, a verification on the page (it writes the account signal),
+   a toggle compose.js could not read, uploaded file names that differ from the draft, or anything else the
+   page shows differently (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post**
+   once, in the same tab, without reloading or switching accounts.
 6. Studio moves to `/tiktokstudio/content`. Run `scripts/browser/studio-rows.js`, save the result, then
    `publish reconcile --attempt <id> --rows <file>` (`processing` while "Content under review", then
-   `published`). If the page crashed or the result is unclear: `publish finish --attempt <id> --outcome unknown`.
+   `published`). A row matches only when its caption AND its time fit the attempt, and only if exactly one
+   row does; otherwise the attempt stays open. If the page crashed or the result is unclear:
+   `publish finish --attempt <id> --outcome unknown`. `finish --outcome published|rejected` needs `--by-owner`
+   and is recorded as an owner override (the owner checked Studio themselves). Disclosure toggles are not
+   shown in the Studio list, so they are verified before Post (step 5), not after.
 
 One open attempt (`submitted`, `processing`, `unknown`, or an unreadable record) blocks every new `begin`
-until it is settled. A privacy that differs from the approval stays `unknown`: fix it in Studio by hand and
+until it is settled; a closed attempt (`published`, `rejected`) can never be reopened. A privacy that differs from the approval stays `unknown`: fix it in Studio by hand and
 never post again to correct it. `publish status` lists open attempts.
 
 ## Rules

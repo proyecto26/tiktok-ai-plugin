@@ -41,27 +41,58 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
     await ensurePrivateDir(dir);
     await ensurePrivateDir(attemptsDir());
     const lock = path.join(dir, 'publish.lock');
+    const token = randomBytes(8).toString('hex');
+    const wait = Number(process.env.TIKTOK_LOCK_WAIT_MS) || LOCK_WAIT_MS;
     const start = Date.now();
     for (;;) {
         try {
             const h = await open(lock, 'wx');
+            await h.writeFile(JSON.stringify({ pid: process.pid, token }));
             await h.close();
             break;
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-            try {
-                if (Date.now() - (await stat(lock)).mtimeMs > STALE_LOCK_MS) await rm(lock, { force: true });
-            } catch {
-                // lock vanished between calls
-            }
-            if (Date.now() - start > LOCK_WAIT_MS) throw new TtError('publish_busy', 'Another publish step holds the publish lock. Wait for it, then try again.');
+            await clearDeadLock(lock);
+            if (Date.now() - start > wait) throw new TtError('publish_busy', 'Another publish step holds the publish lock. Wait for it, then try again.');
             await sleep(20);
         }
     }
     try {
         return await fn();
     } finally {
-        await rm(lock, { force: true });
+        // release only our own lock, never one another process took over
+        if ((await readLock(lock))?.token === token) await rm(lock, { force: true });
+    }
+}
+
+async function readLock(lock: string): Promise<{ pid?: number; token?: string } | null> {
+    try {
+        return JSON.parse(await readFile(lock, 'utf8'));
+    } catch {
+        return null;
+    }
+}
+
+const alive = (pid: number) => {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (error) {
+        return (error as NodeJS.ErrnoException).code === 'EPERM';
+    }
+};
+
+/** Removes the lock only when it is old AND its owner process is gone (or it never got an owner written). */
+async function clearDeadLock(lock: string): Promise<void> {
+    try {
+        if (Date.now() - (await stat(lock)).mtimeMs <= STALE_LOCK_MS) return;
+        const owner = await readLock(lock);
+        if (owner && typeof owner.pid === 'number' && alive(owner.pid)) return;
+        // re-check that it is still the same lock just before removing it
+        const again = await readLock(lock);
+        if ((again?.token ?? null) === (owner?.token ?? null)) await rm(lock, { force: true });
+    } catch {
+        // lock vanished between calls
     }
 }
 
@@ -148,6 +179,8 @@ export async function markOutcome(id: string, state: Outcome, extra: { detail?: 
     if (!OUTCOMES.includes(state)) throw new Error(`Unknown outcome ${state}`);
     return withLock(async () => {
         const a = await getAttempt(id);
+        // published/rejected are final: reopening one could make two attempts open at once
+        if (CLOSED.includes(a.state)) throw new Error(`Publish attempt ${id} is closed (${a.state}); a closed attempt cannot be changed.`);
         const next: Attempt = { ...a, state, updatedAt: new Date().toISOString(), ...(extra.detail !== undefined ? { detail: extra.detail } : {}), ...(extra.postId ? { postId: extra.postId } : {}) };
         await writeAttempt(next);
         return next;

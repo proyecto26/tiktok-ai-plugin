@@ -13,7 +13,7 @@ let env: NodeJS.ProcessEnv;
 let dir: string;
 beforeEach(() => {
     dir = mkdtempSync(path.join(os.tmpdir(), 'ttpub-'));
-    env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc' };
+    env = { ...process.env, TIKTOK_DATA_DIR: path.join(dir, 'data'), TIKTOK_ACCOUNT: 'jdnichollsc', TZ: 'UTC' };
 });
 const run = (args: string[]) => {
     const r = spawnSync(process.execPath, ['--preload', TRAP, MAIN, ...args], { env, encoding: 'utf8' });
@@ -33,6 +33,7 @@ const put = (name: string, v: unknown) => {
 const pageState = (over: Partial<PageState> = {}): PageState => ({
     schema: 'tt-pagestate-v1',
     url: 'https://www.tiktok.com/tiktokstudio/upload',
+    capturedAt: new Date().toISOString(),
     account: 'jdnichollsc',
     kind: 'video',
     caption: 'seam test',
@@ -42,9 +43,12 @@ const pageState = (over: Partial<PageState> = {}): PageState => ({
     aiGenerated: false,
     discloseContent: false,
     files: 1,
+    fileNames: ['clip.mp4'],
     ready: true,
     ...over,
 });
+/** Studio's row time format for an instant, browser-local ("Nov 16, 8:06 AM"). */
+const studioTime = (ms = Date.now()) => new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 const prepare = () => run(['publish', 'prepare', '--video', put('clip.mp4', 'video-bytes'), '--caption', 'seam test']);
 
 describe('publish CLI', () => {
@@ -67,7 +71,7 @@ describe('publish CLI', () => {
         expect(b.json.attempt).toMatchObject({ state: 'submitted', digest: d.digest });
         const again = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps2.json', pageState())]);
         expect(again.json.error.kind).toBe('publish_busy');
-        const f = run(['publish', 'finish', '--attempt', b.json.attempt.id, '--outcome', 'published', '--post-id', '7']);
+        const f = run(['publish', 'finish', '--attempt', b.json.attempt.id, '--outcome', 'published', '--post-id', '7', '--by-owner']);
         expect(f.json.attempt).toMatchObject({ state: 'published', postId: '7' });
         const s = run(['publish', 'status']);
         expect(s.json).toMatchObject({ open: [], recent: [{ id: b.json.attempt.id, state: 'published' }] });
@@ -97,14 +101,14 @@ describe('publish CLI', () => {
     test('reconcile: under review → processing; then Only me row → published', () => {
         const d = prepare().json.draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', pageState())]).json.attempt.id;
-        const rows = (underReview: boolean, privacy = 'only_me') => put(`rows-${underReview}-${privacy}.json`, { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'older post', privacy: 'everyone', underReview: false }, { text: 'seam test', privacy, underReview }] });
+        const rows = (underReview: boolean, privacy = 'only_me') => put(`rows-${underReview}-${privacy}.json`, { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'older post', privacy: 'everyone', underReview: false }, { text: 'seam test', privacy, underReview, time: studioTime() }] });
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(true)]).json.attempt.state).toBe('processing');
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(false)]).json.attempt.state).toBe('published');
     });
     test('reconcile: a privacy that differs stays unknown (never re-post)', () => {
         const d = prepare().json.draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', pageState())]).json.attempt.id;
-        const rows = put('rows.json', { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'seam test', privacy: 'everyone', underReview: false }] });
+        const rows = put('rows.json', { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'seam test', privacy: 'everyone', underReview: false, time: studioTime() }] });
         const r = run(['publish', 'reconcile', '--attempt', id, '--rows', rows]);
         expect(r.json.attempt).toMatchObject({ state: 'unknown', detail: expect.stringContaining('privacy_mismatch') });
     });
@@ -113,15 +117,15 @@ describe('publish CLI', () => {
 describe('compareState and matchRow', () => {
     const draft = { account: 'jdnichollsc', media: [{ path: 'x', sha256: 'h', bytes: 1, manualFilePick: false }], settings: { kind: 'video', caption: 'Hello  world ', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false } } as Draft;
     test('whitespace differences in the caption are not a mismatch; a page not ready is', () => {
-        expect(compareState(draft, pageState({ caption: 'Hello world' }))).toEqual([]);
-        expect(compareState(draft, pageState({ caption: 'Hello world', ready: false, files: 2 }))).toEqual(expect.arrayContaining([expect.stringContaining('ready'), expect.stringContaining('files')]));
+        expect(compareState(draft, pageState({ caption: 'Hello world', fileNames: ['x'] }))).toEqual([]);
+        expect(compareState(draft, pageState({ caption: 'Hello world', fileNames: ['x'], ready: false, files: 2 }))).toEqual(expect.arrayContaining([expect.stringContaining('ready'), expect.stringContaining('files')]));
     });
     test('a draft with no text cannot be matched to a row', () => {
         const empty = { ...draft, settings: { ...draft.settings, caption: '' } } as Draft;
-        expect(matchRow(empty, [{ text: '', privacy: 'only_me', underReview: false }])).toBeNull();
+        expect(matchRow(empty, new Date().toISOString(), [{ text: '', privacy: 'only_me', underReview: false, time: studioTime() }])).toBeNull();
     });
     test('a truncated row text matches the start of the caption', () => {
         const long = { ...draft, settings: { ...draft.settings, caption: `${'a'.repeat(100)} end` } } as Draft;
-        expect(matchRow(long, [{ text: `${'a'.repeat(60)}...`, privacy: 'only_me', underReview: false }])).not.toBeNull();
+        expect(matchRow(long, new Date().toISOString(), [{ text: `${'a'.repeat(60)}...`, privacy: 'only_me', underReview: false, time: studioTime() }])).not.toBeNull();
     });
 });

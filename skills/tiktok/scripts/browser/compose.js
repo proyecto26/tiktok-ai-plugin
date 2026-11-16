@@ -93,16 +93,9 @@
             const u = (window.__Creator_Center_Context__ && window.__Creator_Center_Context__.commonAppContext && window.__Creator_Center_Context__.commonAppContext.user) || (window.__NEXT_DATA__ && window.__NEXT_DATA__.props && window.__NEXT_DATA__.props.initialProps && window.__NEXT_DATA__.props.initialProps.$user);
             if (u && typeof u.uniqueId === 'string' && u.uniqueId) return u.uniqueId.toLowerCase();
         } catch {
-            // fall through to the page
+            // unreadable context: no account
         }
-        for (const a of all('a[href*="/@"]')) {
-            const m = (a.getAttribute('href') || '').match(/\/@([\w.]+)/);
-            if (m) return m[1].toLowerCase();
-        }
-        for (const e of all('[data-e2e*="unique"], [data-e2e*="user-name"], [data-e2e*="nickname"]')) {
-            const m = text(e).match(/@?([\w.]{2,24})/);
-            if (m) return m[1].toLowerCase();
-        }
+        // No fallback to profile links: any page can link to any @handle, so they do not say who is signed in.
         return '';
     };
     const postButton = () => document.querySelector('[data-e2e="post_video_button"]') || all('button').find((b) => /^post$/i.test(text(b))) || null;
@@ -115,6 +108,14 @@
         if (n) return n;
         return kind() === 'video' ? (document.querySelector('video') ? 1 : 0) : all('[data-e2e*="photo"] img, [class*="image-item" i] img').length;
     };
+    // File names shown by the upload status (leaf text that ends in an extension), in page order.
+    const fileNames = () => {
+        const st = status();
+        if (!st) return [];
+        return all('*', st).filter((e) => !e.children.length).map((e) => text(e)).filter((t) => /^[^\s/\\]+\.[a-z0-9]{2,5}$/i.test(t));
+    };
+    // Only TikTok's own verification overlays, and only when shown (a hidden SDK loader is not a challenge).
+    const challenge = () => all('#captcha-verify-container, #captcha_container, [class*="captcha_verify" i], iframe[src*="captcha" i]').some((e) => !e.hidden && e.getAttribute('aria-hidden') !== 'true' && (!e.getClientRects || e.getClientRects().length > 0 || !window.getComputedStyle || window.getComputedStyle(e).display !== 'none'));
     const busy = () => (status() && !/Uploaded/i.test(text(status()))) || /uploading|processing|\b\d{1,2}%/i.test(text(document.querySelector('[class*="upload" i][class*="progress" i]')) || '') || all('[role="progressbar"]').length > 0;
 
     function state() {
@@ -123,11 +124,14 @@
         const s = {
             schema: 'tt-pagestate-v1',
             url: location.href.split('?')[0],
+            capturedAt: new Date().toISOString(),
             account: account(),
             kind: k,
             privacy: readPrivacy(),
             files: files(),
-            ready: !!postButton() && !postButton().disabled && postButton().getAttribute('aria-disabled') !== 'true' && !busy(),
+            fileNames: fileNames(),
+            challenge: challenge(),
+            ready: !challenge() && !!postButton() && !postButton().disabled && postButton().getAttribute('aria-disabled') !== 'true' && !busy(),
         };
         if (k === 'video') s.caption = text(eds[0]);
         else {
@@ -135,7 +139,8 @@
             s.title = t ? t.value : '';
             s.description = text(eds[0]);
         }
-        for (const [key, re] of Object.entries(TOGGLES)) s[key] = checked(control(re)) === true;
+        // a control that was not found is null (not false), so it can never pass as an approved value
+        for (const [key, re] of Object.entries(TOGGLES)) s[key] = checked(control(re));
         const unread = Object.entries(TOGGLES).filter(([, re]) => !control(re)).map(([key]) => key);
         if (unread.length) s.unread = unread;
         return s;

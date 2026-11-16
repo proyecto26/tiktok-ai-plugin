@@ -4,12 +4,12 @@ import path from 'node:path';
 import { TtError } from '../client.ts';
 import { resolvePendingDir } from '../paths.ts';
 import { ensurePrivateDir } from '../secure.ts';
-import { assertNoSignal } from '../signal.ts';
+import { assertNoSignal, writeSignal } from '../signal.ts';
 import { type Draft, normalizeAccount, type PostSettings, type Privacy, prepareDraft, verifyDraft } from './draft.ts';
 import { allAttempts, beginAttempt, getAttempt, markOutcome, type Outcome, openAttempts } from './ledger.ts';
 import { compareState, matchRow, type PageState, type Rows } from './reconcile.ts';
 
-export const PUBLISH_BOOLEANS = ['public', 'no-comments', 'no-reuse', 'ai-generated', 'disclose'] as const;
+export const PUBLISH_BOOLEANS = ['public', 'no-comments', 'no-reuse', 'ai-generated', 'disclose', 'by-owner'] as const;
 
 export const PUBLISH_HELP = `Publishing (TikTok Studio composer in your own Chrome; nothing is posted by the CLI itself):
   publish prepare (--video <f> | --photos <a,b,..>) [--caption s | --title s --description s]
@@ -18,7 +18,8 @@ export const PUBLISH_HELP = `Publishing (TikTok Studio composer in your own Chro
                                          Dry run: hashes the media, prints the draft and its digest
   publish begin --draft <digest> --approve <digest> --page-state <file>
                                          After the owner's yes and compose.js state(): records the attempt
-  publish finish --attempt <id> --outcome published|processing|rejected|unknown [--post-id id]
+  publish finish --attempt <id> --outcome processing|unknown [--post-id id]
+  publish finish --attempt <id> --outcome published|rejected --by-owner   Owner checked Studio by hand
   publish reconcile --attempt <id> --rows <file>   Settle an attempt from studio-rows.js output
   publish status                         Open attempts and the last closed ones`;
 
@@ -88,6 +89,10 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             if (str(flags.approve) !== draft.digest) throw new TtError('approval_mismatch', '--approve must be the exact digest the owner approved (from publish prepare).');
             await verifyDraft(draft);
             const state = await readJson<PageState>(str(flags['page-state']), '--page-state');
+            if (state?.challenge === true) {
+                await writeSignal('challenge', 'publish begin: verification on the upload page');
+                throw new TtError('challenge', 'TikTok shows a verification on the upload page. Resolve it in the browser, then `resume`; do not click Post.');
+            }
             const diff = compareState(draft, state);
             if (diff.length) throw new TtError('page_mismatch', `The page does not show the approved post: ${diff.join('; ')}. Fix the page (compose.js fill) and read the state again; do not click Post.`);
             const attempt = await beginAttempt({ account: draft.account, digest: draft.digest });
@@ -98,7 +103,11 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             const id = str(flags.attempt);
             const outcome = str(flags.outcome) as Outcome | undefined;
             if (!id || !outcome || !['published', 'processing', 'rejected', 'unknown'].includes(outcome)) throw new Error('publish finish --attempt <id> --outcome published|processing|rejected|unknown');
-            out({ attempt: await markOutcome(id, outcome, { postId: str(flags['post-id']), detail: str(flags.detail) }) });
+            // Closing an attempt normally needs the Studio readback (publish reconcile). A manual close is an owner override.
+            const closing = outcome === 'published' || outcome === 'rejected';
+            if (closing && flags['by-owner'] !== true) throw new Error('Closing an attempt by hand needs --by-owner (the owner checked Studio themselves). Otherwise use publish reconcile --rows.');
+            const detail = closing ? `owner override${str(flags.detail) ? `: ${str(flags.detail)}` : ''}` : str(flags.detail);
+            out({ attempt: await markOutcome(id, outcome, { postId: str(flags['post-id']), detail }) });
             return 0;
         }
         case 'reconcile': {
@@ -109,15 +118,15 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             const rows = await readJson<Rows>(str(flags.rows), '--rows');
             if (rows?.schema !== 'tt-rows-v1' || !Array.isArray(rows.rows)) throw new Error('--rows is not a tt-rows-v1 file (run scripts/browser/studio-rows.js)');
             if (normalizeAccount(String(rows.account ?? '')) !== draft.account) throw new TtError('page_mismatch', `The Studio page is signed in as @${rows.account}, not @${draft.account}.`);
-            const row = matchRow(draft, rows.rows);
+            const row = matchRow(draft, attempt.startedAt, rows.rows);
             if (!row) {
-                out({ attempt, matched: null, note: 'No Studio row matches this draft yet. Reload Studio content later and reconcile again; do not post again.' });
+                out({ attempt, matched: null, note: 'No single Studio row matches this draft and its time (none yet, no readable time, or more than one). Reload Studio content later and reconcile again; do not post again.' });
                 return 0;
             }
             const next =
                 row.privacy !== draft.settings.privacy ? await markOutcome(id, 'unknown', { detail: `privacy_mismatch: Studio shows ${row.privacy}, approved ${draft.settings.privacy}. Fix it in Studio by hand; never re-post.` })
                 : row.underReview ? await markOutcome(id, 'processing', { detail: 'Content under review' })
-                : await markOutcome(id, 'published');
+                : await markOutcome(id, 'published', { detail: 'readback: caption, privacy and review state from Studio content; disclosure toggles are not shown there' });
             out({ attempt: next, matched: row });
             return 0;
         }
