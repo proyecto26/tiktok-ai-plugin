@@ -1,6 +1,6 @@
 ---
 name: tiktok
-description: This skill should be used when the user asks to "sign in to TikTok", "log in to TikTok with cookies", "read my TikTok profile", "list my TikTok videos", "get the comments of this TikTok", "check my TikTok session", or wants to drive their own TikTok account from the terminal with their browser session (no TikTok API app, no Apify). It is the operator every other tiktok-* skill stands on. Publishing videos and photo posts is being added after the upload flow is verified.
+description: This skill should be used when the user asks to "sign in to TikTok", "log in to TikTok with cookies", "read my TikTok profile", "list my TikTok videos", "get the comments of this TikTok", "check my TikTok session", or wants to "post this video to TikTok", "publish a TikTok photo post / carousel", "upload to TikTok privately", or to drive their own TikTok account from the terminal with their browser session (no TikTok API app, no Apify). It is the operator every other tiktok-* skill stands on.
 ---
 
 # TikTok (The Operator)
@@ -11,7 +11,7 @@ Drive your own TikTok account with your browser session. Every command runs with
 npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 ```
 
-## Commands (phase 1)
+## Commands
 
 | Command | What it does |
 |---|---|
@@ -25,6 +25,7 @@ npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 | `videos --capture <file> [--limit N]` | Posts (default 20, max 200), videos and photo posts |
 | `video --capture <file>` | One post |
 | `comments --capture <file> [--limit N]` | Comments of a post |
+| `publish prepare\|begin\|finish\|reconcile\|status` | Publish a video or photo post through TikTok Studio (see below) |
 
 ## Reading through your own Chrome
 
@@ -54,9 +55,34 @@ marks the account signal, like every other command; `more()` stops scrolling onc
 Pace yourself: one tab, few page loads, long pauses. A 403 "Access denied" page, a captcha or a "Please wait"
 page means stop: write nothing more, close the tab and tell the user.
 
+## Publishing (video or photo post, private by default)
+
+The CLI never posts by itself. It binds the owner's approval to the exact bytes and settings, records the
+attempt before Post is clicked, and settles the outcome. The composer is driven in **your normal Chrome**.
+
+1. `publish prepare --video clip.mp4 --caption "..."` (or `--photos a.jpg,b.jpg --title "..." --description "..."`).
+   Privacy defaults to `only_me`; `--privacy everyone` also needs `--public`. Toggles: `--no-comments`,
+   `--no-reuse`, `--ai-generated`, `--disclose`. It prints the draft and its digest (a dry run).
+2. **Show the draft to the owner** (file name, size, sha256, caption, every setting) and wait for an explicit yes.
+3. Open `https://www.tiktok.com/tiktokstudio/upload` (photos: the Photo tab). Add the file(s) with the page's
+   file input; a file marked `manualFilePick` (over 10 MB) is chosen by the owner in the page.
+4. Run the text of `scripts/browser/compose.js`, then `await window.__ttCompose.fill(<draft.settings>)`, then
+   save `JSON.stringify(window.__ttCompose.state())` to a file.
+5. `publish begin --draft <digest> --approve <digest> --page-state <file>`. It refuses on an account signal, a
+   changed file, a different digest, or a page that shows anything other than the approved post
+   (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post** once.
+6. Studio moves to `/tiktokstudio/content`. Run `scripts/browser/studio-rows.js`, save the result, then
+   `publish reconcile --attempt <id> --rows <file>` (`processing` while "Content under review", then
+   `published`). If the page crashed or the result is unclear: `publish finish --attempt <id> --outcome unknown`.
+
+One open attempt (`submitted`, `processing`, `unknown`, or an unreadable record) blocks every new `begin`
+until it is settled. A privacy that differs from the approval stays `unknown`: fix it in Studio by hand and
+never post again to correct it. `publish status` lists open attempts.
+
 ## Rules
 
 - Cookie values are never printed. The cookie store is locked to your user; if that lock fails nothing is saved.
 - On HTTP 429, a captcha, a verification page or "too many attempts" every command stops and the account is
   marked with a signal; nothing runs again until you run `resume`. There are no retry loops.
 - There are no like, follow, unfollow, DM or delete commands, by design.
+- Nothing is published without the owner's explicit yes to the exact draft; Post is clicked once per attempt.

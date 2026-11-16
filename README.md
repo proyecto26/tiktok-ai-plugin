@@ -181,7 +181,9 @@ bash ../scripts/check-manifests.sh
 
 ## 🚧 Known Limitations
 
-- **Phase 1.** Only login and reads exist; publishing waits for the verified upload flow.
+- **Publishing is experimental.** `publish` drives TikTok Studio's composer in your own Chrome; the composer
+  locators beyond the recon are checked on the first live post. Files over 10 MB are picked in the page by you.
+- **No hashtag or search reads yet**, and no scheduling (Studio blocks scheduling for private posts).
 - **Private endpoints change.** Field names and page data can move; every read reports its source.
 - **No TikTok analytics API.** Watch time, traffic sources and follower growth live in TikTok
   Studio's analytics and are not estimated.
