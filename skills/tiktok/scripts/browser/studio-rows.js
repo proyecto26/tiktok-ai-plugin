@@ -13,9 +13,24 @@
     const rows = [];
     const seen = new Set();
     for (const label of leafLabels) {
+        // Seen live 2026-11-16: each row is [data-tt="components_RowLayout_FlexRow"], the caption sits in
+        // [data-tt$="PostInfoCell_TruncateText"], and the privacy label is ~10 levels deep inside a button.
+        const known = label.closest('[data-tt="components_RowLayout_FlexRow"]');
+        if (known) {
+            if (seen.has(known)) continue;
+            seen.add(known);
+            const cap = known.querySelector('[data-tt$="PostInfoCell_TruncateText"]');
+            const ls = lines(known);
+            const row = { text: cap ? (cap.textContent || '').replace(/\s+/g, ' ').trim() : ls.find((l) => !SKIP.test(l)) || '', privacy: PRIVACY[(label.textContent || '').trim().toLowerCase()] || 'unknown', underReview: ls.some((l) => /under review/i.test(l)) };
+            const time = ls.find((l) => /^\w{3} \d{1,2}(, \d{4})?|^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(l));
+            if (time) row.time = time;
+            rows.push(row);
+            if (rows.length >= 10) break;
+            continue;
+        }
         let row = label.parentElement;
-        // grow until the block holds a caption line, but never two privacy labels (that is the whole table)
-        for (let i = 0; i < 8 && row; i++) {
+        // Fallback: grow until the block holds a caption line, but never two privacy labels (the whole table)
+        for (let i = 0; i < 14 && row; i++) {
             const labels = Array.from(row.querySelectorAll('span,div,p')).filter((e) => LABEL_RE.test((e.textContent || '').trim()) && !e.children.length).length;
             if (labels > 1) {
                 row = null;
@@ -36,12 +51,18 @@
         if (rows.length >= 10) break;
     }
     let account = '';
-    for (const a of document.querySelectorAll('a[href*="/@"]')) {
+    try {
+        const u = window.__Creator_Center_Context__ && window.__Creator_Center_Context__.commonAppContext && window.__Creator_Center_Context__.commonAppContext.user;
+        if (u && typeof u.uniqueId === 'string') account = u.uniqueId.toLowerCase();
+    } catch {
+        // fall through to the page links
+    }
+    if (!account) for (const a of document.querySelectorAll('a[href*="/@"]')) {
         const m = (a.getAttribute('href') || '').match(/\/@([\w.]+)/);
         if (m) {
             account = m[1].toLowerCase();
             break;
         }
     }
-    return JSON.stringify({ schema: 'tt.rows.v1', account, rows });
+    return JSON.stringify({ schema: 'tt-rows-v1', account, rows });
 })();

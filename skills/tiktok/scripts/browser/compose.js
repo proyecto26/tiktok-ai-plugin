@@ -88,6 +88,13 @@
     };
 
     const account = () => {
+        // Seen live 2026-11-16: Studio keeps the signed-in user in its app context (no profile link on the page).
+        try {
+            const u = (window.__Creator_Center_Context__ && window.__Creator_Center_Context__.commonAppContext && window.__Creator_Center_Context__.commonAppContext.user) || (window.__NEXT_DATA__ && window.__NEXT_DATA__.props && window.__NEXT_DATA__.props.initialProps && window.__NEXT_DATA__.props.initialProps.$user);
+            if (u && typeof u.uniqueId === 'string' && u.uniqueId) return u.uniqueId.toLowerCase();
+        } catch {
+            // fall through to the page
+        }
         for (const a of all('a[href*="/@"]')) {
             const m = (a.getAttribute('href') || '').match(/\/@([\w.]+)/);
             if (m) return m[1].toLowerCase();
@@ -99,18 +106,22 @@
         return '';
     };
     const postButton = () => document.querySelector('[data-e2e="post_video_button"]') || all('button').find((b) => /^post$/i.test(text(b))) || null;
+    // Seen live: [data-e2e="upload_status_container"] reads "seam-story.mp4 1080P Uploaded（8.74MB） Replace".
+    const status = () => document.querySelector('[data-e2e="upload_status_container"]');
     const files = () => {
+        const st = status();
+        if (st) return (text(st).match(/Uploaded/gi) || []).length;
         const n = all('input[type="file"]').reduce((s, i) => s + (i.files ? i.files.length : 0), 0);
         if (n) return n;
         return kind() === 'video' ? (document.querySelector('video') ? 1 : 0) : all('[data-e2e*="photo"] img, [class*="image-item" i] img').length;
     };
-    const busy = () => /uploading|processing|\b\d{1,2}%/i.test(text(document.querySelector('[class*="upload" i][class*="progress" i]')) || '') || all('[role="progressbar"]').length > 0;
+    const busy = () => (status() && !/Uploaded/i.test(text(status()))) || /uploading|processing|\b\d{1,2}%/i.test(text(document.querySelector('[class*="upload" i][class*="progress" i]')) || '') || all('[role="progressbar"]').length > 0;
 
     function state() {
         const k = kind();
         const eds = editable();
         const s = {
-            schema: 'tt.pagestate.v1',
+            schema: 'tt-pagestate-v1',
             url: location.href.split('?')[0],
             account: account(),
             kind: k,
@@ -150,9 +161,16 @@
             }
         }
         if (readPrivacy() !== settings.privacy) {
-            safeClick(privacyBox() && (privacyBox().querySelector('[role="combobox"], button, div') || privacyBox()));
+            // Seen live: <button role="combobox" aria-expanded> inside the container; options are [role="option"]
+            // rendered only while it is open, and "Friends" carries a subtitle ("Followers you follow back").
+            const box = privacyBox();
+            const cb = box && (box.querySelector('[role="combobox"]') || box.querySelector('button'));
+            if (!cb) throw new Error('privacy combobox not found (data-e2e video_visibility_container)');
+            if (cb.getAttribute('aria-expanded') !== 'true') safeClick(cb);
             await sleep(400);
-            const opt = byText(new RegExp(`^${LABEL[settings.privacy]}$`, 'i')).find((e) => !privacyBox() || !privacyBox().contains(e)) || byText(new RegExp(`^${LABEL[settings.privacy]}$`, 'i'))[0];
+            const want = LABEL[settings.privacy].toLowerCase();
+            const options = all('[role="option"]');
+            const opt = options.find((o) => text(o).toLowerCase() === want) || options.find((o) => text(o).toLowerCase().startsWith(want)) || byText(new RegExp(`^${LABEL[settings.privacy]}$`, 'i')).find((e) => !box.contains(e));
             if (!opt) throw new Error(`privacy option "${LABEL[settings.privacy]}" not found`);
             safeClick(opt);
             await sleep(300);

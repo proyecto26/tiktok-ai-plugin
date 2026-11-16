@@ -107,7 +107,7 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
             const attempt = await getAttempt(id);
             const draft = await loadDraft(attempt.digest);
             const rows = await readJson<Rows>(str(flags.rows), '--rows');
-            if (rows?.schema !== 'tt.rows.v1' || !Array.isArray(rows.rows)) throw new Error('--rows is not a tt.rows.v1 file (run scripts/browser/studio-rows.js)');
+            if (rows?.schema !== 'tt-rows-v1' || !Array.isArray(rows.rows)) throw new Error('--rows is not a tt-rows-v1 file (run scripts/browser/studio-rows.js)');
             if (normalizeAccount(String(rows.account ?? '')) !== draft.account) throw new TtError('page_mismatch', `The Studio page is signed in as @${rows.account}, not @${draft.account}.`);
             const row = matchRow(draft, rows.rows);
             if (!row) {

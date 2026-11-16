@@ -31,7 +31,7 @@ const put = (name: string, v: unknown) => {
     return p;
 };
 const pageState = (over: Partial<PageState> = {}): PageState => ({
-    schema: 'tt.pagestate.v1',
+    schema: 'tt-pagestate-v1',
     url: 'https://www.tiktok.com/tiktokstudio/upload',
     account: 'jdnichollsc',
     kind: 'video',
@@ -97,14 +97,14 @@ describe('publish CLI', () => {
     test('reconcile: under review → processing; then Only me row → published', () => {
         const d = prepare().json.draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', pageState())]).json.attempt.id;
-        const rows = (underReview: boolean, privacy = 'only_me') => put(`rows-${underReview}-${privacy}.json`, { schema: 'tt.rows.v1', account: 'jdnichollsc', rows: [{ text: 'older post', privacy: 'everyone', underReview: false }, { text: 'seam test', privacy, underReview }] });
+        const rows = (underReview: boolean, privacy = 'only_me') => put(`rows-${underReview}-${privacy}.json`, { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'older post', privacy: 'everyone', underReview: false }, { text: 'seam test', privacy, underReview }] });
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(true)]).json.attempt.state).toBe('processing');
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(false)]).json.attempt.state).toBe('published');
     });
     test('reconcile: a privacy that differs stays unknown (never re-post)', () => {
         const d = prepare().json.draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', pageState())]).json.attempt.id;
-        const rows = put('rows.json', { schema: 'tt.rows.v1', account: 'jdnichollsc', rows: [{ text: 'seam test', privacy: 'everyone', underReview: false }] });
+        const rows = put('rows.json', { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'seam test', privacy: 'everyone', underReview: false }] });
         const r = run(['publish', 'reconcile', '--attempt', id, '--rows', rows]);
         expect(r.json.attempt).toMatchObject({ state: 'unknown', detail: expect.stringContaining('privacy_mismatch') });
     });

@@ -3,7 +3,7 @@ import { normalizeAccount } from './draft.ts';
 
 /** What the composer shows, read by scripts/browser/compose.js `state()`. */
 export interface PageState {
-    schema: 'tt.pagestate.v1';
+    schema: 'tt-pagestate-v1';
     url: string;
     account: string;
     kind: 'video' | 'photo';
@@ -28,7 +28,7 @@ export interface Row {
 }
 
 export interface Rows {
-    schema: 'tt.rows.v1';
+    schema: 'tt-rows-v1';
     account: string;
     rows: Row[];
 }
@@ -38,7 +38,7 @@ const squash = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 /** Every difference between the approved draft and what the page shows; empty means they agree. */
 export function compareState(d: Pick<Draft, 'account' | 'media' | 'settings'>, s: PageState): string[] {
     const diff: string[] = [];
-    if (s?.schema !== 'tt.pagestate.v1') return ['schema: not a tt.pagestate.v1 file (run scripts/browser/compose.js state())'];
+    if (s?.schema !== 'tt-pagestate-v1') return ['schema: not a tt-pagestate-v1 file (run scripts/browser/compose.js state())'];
     const pageAccount = normalizeAccount(String(s.account ?? ''));
     if (pageAccount !== d.account) diff.push(`account: page is signed in as @${pageAccount || '?'}, draft is for @${d.account}`);
     const set = d.settings;
