@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- tiktok-video-breakdown: cuts are measured and stored as frames (`breakdown.json` `timebase` and
+  `cuts.frames`; seconds are derived). A variable-rate source is analysed on a constant-rate copy
+  (`source/work_cfr.mp4`). `--add-cut` moves to the strongest change within 2 frames and reports it
+  (`snapped`); new `--add-cut-frame`; corrections are kept per working file and moved from seconds
+  to frames on first use. `analysis_id` covers the file hash, the rate and the frame cuts.
 - tiktok: media projection (play URLs, caption tracks, music), list coverage (`exhausted`), list identity checks
   (`mixed_lists`), and hashtag and sound reads from captures.
 - tiktok-video-breakdown: guarded CDN downloader (no cookies to CDN hosts, signed URLs redacted), `fetch` from
