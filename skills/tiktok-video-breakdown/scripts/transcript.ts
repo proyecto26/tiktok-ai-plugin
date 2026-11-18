@@ -3,7 +3,7 @@
  * Speech transcript: import an existing file or run the user's own recogniser. This skill ships
  * no speech model and downloads none; see references/transcription.md for recipes.
  */
-import { readFile, rm } from 'node:fs/promises';
+import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { run } from './ff.ts';
@@ -125,6 +125,27 @@ export function parseTranscript(text: string, file: string, source: string, lang
 
 const sort = (s: Segment[]) => [...s].sort((a, b) => a.start - b.start).map((x) => ({ ...x, start: r3(x.start), end: r3(Math.max(x.start, x.end)) }));
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+export type TranscriptChoice =
+    | { kind: 'file'; path: string }
+    | { kind: 'existing' }
+    | { kind: 'captions'; path: string; lang: string }
+    | { kind: 'recogniser'; cmd: string }
+    | { kind: 'none' };
+
+/**
+ * Which transcript a breakdown uses, in order: an explicit file; a transcript made earlier with `transcribe`;
+ * the TikTok caption track saved by fetch (source/captions.<lang>.vtt, first in name order); the owner's
+ * local recogniser (TT_ASR_CMD); none, and speech stays unconfirmed.
+ */
+export async function chooseTranscript(dir: string, opts: { file?: string; asrCmd?: string }): Promise<TranscriptChoice> {
+    if (opts.file) return { kind: 'file', path: opts.file };
+    if (await stat(path.join(dir, 'transcript.json')).then((s) => s.isFile(), () => false)) return { kind: 'existing' };
+    const names = (await readdir(path.join(dir, 'source')).catch(() => [] as string[])).filter((n) => /^captions\.[A-Za-z0-9-]+\.vtt$/.test(n)).sort();
+    if (names.length) return { kind: 'captions', path: path.join(dir, 'source', names[0]), lang: names[0].slice('captions.'.length, -'.vtt'.length) };
+    if (opts.asrCmd?.trim()) return { kind: 'recogniser', cmd: opts.asrCmd };
+    return { kind: 'none' };
+}
 
 export async function importTranscript(file: string, lang?: string | null): Promise<Transcript> {
     return parseTranscript(await readFile(file, 'utf8'), file, `import:${path.basename(file)}`, lang);

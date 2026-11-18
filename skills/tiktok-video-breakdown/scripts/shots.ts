@@ -260,6 +260,23 @@ export interface TextCandidate {
     band: Band;
 }
 
+/** Per-shot strip rate up to LONG_VIDEO_S; `sheet` still caps every strip at its tile limit. */
+export const STRIP_FPS = 2;
+const LONG_VIDEO_S = 90;
+const MIN_STRIP_FPS = 0.25;
+const HOOK_S = 3;
+
+/**
+ * Strip density for one shot. Videos longer than 90 s are length-scaled (2 fps x 90 / duration, at least
+ * 0.25 fps); a shot that overlaps the hook (first 3 s) or holds a text-change candidate gets double density.
+ */
+export function stripFps(shot: { start: number; end: number }, duration: number, candidates: TextCandidate[]): number {
+    let rate = duration > LONG_VIDEO_S ? Math.max(MIN_STRIP_FPS, (STRIP_FPS * LONG_VIDEO_S) / duration) : STRIP_FPS;
+    const dense = shot.start < HOOK_S || candidates.some((c) => c.t > shot.start && c.t <= shot.end);
+    if (dense) rate *= 2;
+    return rate;
+}
+
 /**
  * A band changed while the rest of the frame stayed still: a caption probably appeared, changed
  * or left. Pairs that straddle a cut are ignored. Candidates of one band closer than
@@ -345,7 +362,7 @@ export interface ShotImages {
     timestamps_burned: boolean;
 }
 
-export async function exportShotImages(video: string, outDir: string, shot: ShotSpan, fps: number): Promise<ShotImages> {
+export async function exportShotImages(video: string, outDir: string, shot: ShotSpan, fps: number, stripRate = STRIP_FPS): Promise<ShotImages> {
     const dir = path.join(outDir, 'shots');
     await mkdir(dir, { recursive: true });
     const frame = 1 / (fps || 30);
@@ -363,7 +380,7 @@ export async function exportShotImages(video: string, outDir: string, shot: Shot
         '-filter_complex', '[0]scale=360:-2[a];[1]scale=360:-2[b];[2]scale=360:-2[c];[a][b][c]hstack=inputs=3',
         '-frames:v', '1', '-q:v', '4', path.join(outDir, sheetRel),
     ]);
-    const s = await sheet(video, shot.start, shot.end, 2, path.join(outDir, rel('strip')));
+    const s = await sheet(video, shot.start, shot.end, stripRate, path.join(outDir, rel("strip")));
     return {
         first: rel('first'), last: rel('last'), mid: rel('mid'), sheet: sheetRel, strip: rel('strip'),
         first_t: round3(firstT), mid_t: round3(midT), last_t: round3(lastT),

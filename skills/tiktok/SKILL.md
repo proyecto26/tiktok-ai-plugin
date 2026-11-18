@@ -1,6 +1,6 @@
 ---
 name: tiktok
-description: This skill should be used when the user asks to "sign in to TikTok", "log in to TikTok with cookies", "read my TikTok profile", "list my TikTok videos", "get the comments of this TikTok", "check my TikTok session", or wants to "post this video to TikTok", "publish a TikTok photo post / carousel", "upload to TikTok privately", or to drive their own TikTok account from the terminal with their browser session (no TikTok API app, no Apify). It is the operator every other tiktok-* skill stands on.
+description: This skill should be used when the user asks to "sign in to TikTok", "log in to TikTok with cookies", "read my TikTok profile", "list my TikTok videos", "get the comments of this TikTok", "check my TikTok session", or wants to "post this video to TikTok", "publish a TikTok photo post / carousel", "upload to TikTok privately", or to drive their own TikTok account from the terminal with their browser session (no TikTok API app, no third-party scraping service). It is the operator every other tiktok-* skill stands on.
 ---
 
 # TikTok (The Operator)
