@@ -38,22 +38,30 @@ commands, by design.
   unclear outcome stays open so nothing is posted twice. Private video and private photo posts are
   verified live; other variants are `--experimental`.
 
-### ✍️ **2. TikTok Content (The Writer)** *(planned)*
-*Hooks, scripts, captions and plans that sound like a person.* Hook scoring, caption linting,
-repurposing and a content calendar.
+### ✍️ **2. TikTok Content (The Writer)**
+*Hooks, scripts and captions that sound like a person.* The hook triple (spoken line, on-screen text,
+first visual) scored offline; caption linting with TikTok's limits (2,200 characters, the cut before
+"more", photo-post title and description); beat sheets; an AI-tell and slop check. Publishing goes
+through the operator's dry run.
 
-### 🔎 **3. TikTok Audit (The Analyst)** *(planned)*
-*Your account against its own median.* Formats, cadence, hooks and outliers from real posts.
+### 🔎 **3. TikTok Audit (The Analyst)**
+*Your account against its own median.* From the operator's reads: medians, engagement rate over plays,
+videos vs photo posts, length buckets, cadence, hashtags, hits and misses, and a 12-item profile score.
+It says "sample of N posts" unless the operator read the whole list.
 
-### 🕵️ **4. TikTok Research (The Detective)** *(planned)*
-*What works in your niche.* Competitors and outlier videos, read with your session.
+### 🕵️ **4. TikTok Research (The Detective)**
+*What works in your niche.* From hashtag, sound and profile pages you open: per-creator outliers (3x the
+creator's own median, at least 8 posts), sounds and hashtags recurring across winners, and a trend fit
+check.
 
 ### 💰 **5. TikTok Ads (The Strategist)** *(planned)*
 *Monetization and Promote, read-only advice.* You create campaigns in the app or Ads Manager.
 
-### 🎬 **6. TikTok Video Breakdown (The Editor)** *(planned)*
-*Any TikTok into shots and script.* Download with your session (yt-dlp as fallback), cut-based
-frames with ffmpeg, TikTok's own captions or local Whisper, and an `.srt`.
+### 🎬 **6. TikTok Video Breakdown (The Editor)**
+*Any TikTok into shots and script.* The video from a capture of your own Chrome through a guarded
+downloader (or a local file with `fetch --file`), cuts and pacing with ffmpeg, per-shot frames,
+TikTok's own caption track or your local speech model, and a shot list, script and per-shot
+production plan.
 
 ### 🎭 **7. TikTok Video Remake (The Director)** *(planned)*
 *Replace one person in a video you may remake* with MiniMax H3 in a local ComfyUI, 1080x1920.
@@ -192,7 +200,14 @@ bash ../scripts/check-manifests.sh
   The page must show no location. Studio rows carry no post id, only text and a minute, so another post with
   the same text in the same window could settle an attempt whose own Post failed: post nothing else with
   matching text until it is settled. The cover is left at TikTok's default: look at the preview before Post. Files over 10 MB are picked in the page by you.
-- **No hashtag or search reads yet**, and no scheduling (Studio blocks scheduling for private posts).
+- **Hashtag and sound reads cover what the page showed you.** A capture is the posts loaded while you
+  scrolled, so research results are a sample ("in the posts read"). No search reads, and no scheduling
+  (Studio blocks scheduling for private posts).
+- **Transcription is local only.** The breakdown uses TikTok's caption track when the post has one,
+  else a speech model on your machine; no cloud transcription.
+- **Breakdown downloads come from your capture.** When the capture has no playable URL, download the
+  video yourself and use `fetch --file`. yt-dlp is not wired in yet. Photo posts cannot be broken down
+  yet (`photo_post`).
 - **Private endpoints change.** Field names and page data can move; every read reports its source.
 - **No TikTok analytics API.** Watch time, traffic sources and follower growth live in TikTok
   Studio's analytics and are not estimated.

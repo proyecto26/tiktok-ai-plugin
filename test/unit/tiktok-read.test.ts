@@ -49,7 +49,7 @@ describe('profile', () => {
         expect(() => profileFromCapture(cap({ scope: {} }))).toThrow(expect.objectContaining({ kind: 'unexpected_page' }));
     });
     test('private account is reported, not an error', () => {
-        expect(profileFromCapture(cap({ url: 'https://www.tiktok.com/@someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ })).data.private).toBe(true);
+        expect(profileFromCapture(cap({ url: 'https://www.tiktok.com/@synthetic_someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ })).data.private).toBe(true);
     });
 });
 
@@ -84,7 +84,7 @@ describe('videos', () => {
         expect(r).toMatchObject({ source: 'page', complete: false, reason: 'signed_list_api' });
     });
     test('private account with nothing visible → private', () => {
-        expect(() => videosFromCapture(cap({ url: 'https://www.tiktok.com/@someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ }), {})).toThrow(expect.objectContaining({ kind: 'private' }));
+        expect(() => videosFromCapture(cap({ url: 'https://www.tiktok.com/@synthetic_someone', scope: fx('profile-private.synthetic.json').__DEFAULT_SCOPE__ }), {})).toThrow(expect.objectContaining({ kind: 'private' }));
     });
 });
 
@@ -101,14 +101,14 @@ describe('single video and comments', () => {
     test('comments normalize to TtComment', () => {
         const r = commentsFromCapture(cap({ responses: [{ path: '/api/comment/list/', body: fx('comment-list.synthetic.json') }] }), {});
         expect(r.data).toEqual([
-            { id: 'c1', text: 'great', likes: 2, replies: 0, createTime: 1771024700, author: 'fan1' },
-            { id: 'c2', text: 'wow', likes: 0, replies: 1, createTime: 1771024800, author: 'fan2' },
+            { id: 'c1', text: 'SYNTH: great', likes: 2, replies: 0, createTime: 1771024700, author: 'synthetic_fan1' },
+            { id: 'c2', text: 'SYNTH: wow', likes: 0, replies: 1, createTime: 1771024800, author: 'synthetic_fan2' },
         ]);
         expect(r.complete).toBe(true);
     });
     test('live comment/list shape normalizes', () => {
         const r = commentsFromCapture(cap({ responses: [{ path: '/api/comment/list/', body: fx('comment-list.redacted.json') }] }), {});
-        expect(r).toMatchObject({ source: 'api', complete: true, data: [{ id: '7366955290338870022', likes: 3, replies: 0, createTime: 1715252962, author: 'commenter1' }] });
+        expect(r).toMatchObject({ source: 'api', complete: true, data: [{ id: '7366955290338870022', likes: 3, replies: 0, createTime: 1715252962, author: 'synthetic_commenter1' }] });
     });
     test('video opened in-app with only comments captured → not_found that says what to do', () => {
         const c = cap({ url: 'https://www.tiktok.com/@jdnichollsc/video/7366850969226808581', responses: [{ path: '/api/comment/list/', body: fx('comment-list.redacted.json') }] });
