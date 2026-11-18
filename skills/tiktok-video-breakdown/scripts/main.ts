@@ -1,16 +1,17 @@
 #!/usr/bin/env -S npx -y bun
 // Ported from instagram-ai-plugin skills/instagram-video-breakdown (same author, MIT).
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
 import { analyseAudio } from './audio.ts';
-import { analysisId, answersTemplate, applyReview, buildScript, buildTasks, pacing, recreateMarkdown, summaryText, type Breakdown, type Shot } from './breakdown.ts';
+import { DETECTOR_VERSION, analysisId, answersTemplate, applyReview, buildScript, buildTasks, pacing, recreateMarkdown, summaryText, type Breakdown, type Shot } from './breakdown.ts';
 import { DEFAULT_MAX_BYTES, scrubUrls } from './cdn.ts';
 import { fetchFromCapture, fetchFromFile } from './fetch.ts';
 import type { Meta } from './source.ts';
 import { ToolError, installHint, majorOf, toolVersion } from './ff.ts';
-import { applyOverrides, detectCuts, diffCuts, exportShotImages, grayFrames, mergeCuts, motionForShot, pairStats, probe, recordOverrides, sheet, spans, storyboard, stripFps, textCandidates, type CutOverrides } from './shots.ts';
+import { applyFrameOverrides, detectCuts, diffCuts, exportShotImages, frameSpans, grayFrames, mergeFrameCuts, migrateOverrides, motionForShot, pairStats, probe, recordFrameOverrides, round3, sheet, storyboard, stripFps, textCandidates, type FrameOverrides } from './shots.ts';
+import { cfrCopy, frameDiffsAround, frameToSec, minShotFrames, probeRate, secToFrame, sha256File, snapToChange, type Timebase } from './timebase.ts';
 import { chooseTranscript, importTranscript, runRecogniser, type Transcript } from './transcript.ts';
 
 const HELP = `TikTok video breakdown: reverse-engineer a TikTok so a similar one can be made
@@ -24,7 +25,9 @@ Usage: npx -y bun scripts/main.ts <command> [options]
   analyze <dir> [--scene 0.30]             Cuts, per-shot frames and strips, motion and text-change hints, audio facts
         [--transcript <file>]              Use this transcript (.srt, .vtt, .json); it overrides captions and the recogniser
         [--max-duration 900]               Refuse longer videos (frames and audio are decoded into memory)
-        [--add-cut t1,t2] [--remove-cut t] [--reset-cuts]   Manual cut corrections (remembered in cuts_override.json)
+        [--add-cut t1,t2] [--add-cut-frame n1,n2] [--remove-cut t] [--reset-cuts]
+                                           Manual cut corrections in frames (remembered in cuts_override.json);
+                                           --add-cut moves each time to the strongest change within 2 frames
         [--no-diff-cuts]                   Use only ffmpeg's scene score (skip the frame-difference cuts)
   frames <dir> --from <s> --to <s> [--fps 4]    Dense sheet of any time range, timestamps under each tile
   transcribe <dir> --import <file>         Use an existing transcript (.srt, .vtt, .json)
@@ -46,7 +49,7 @@ interface Args {
     flags: Record<string, string | true>;
 }
 
-const VALUE_FLAGS = new Set(['o', 'out', 'capture', 'id', 'transcript', 'max-bytes', 'max-duration', 'file', 'scene', 'add-cut', 'remove-cut', 'from', 'to', 'fps', 'import', 'cmd', 'lang', 'answers']);
+const VALUE_FLAGS = new Set(['o', 'out', 'capture', 'id', 'transcript', 'max-bytes', 'max-duration', 'file', 'scene', 'add-cut', 'add-cut-frame', 'remove-cut', 'from', 'to', 'fps', 'import', 'cmd', 'lang', 'answers']);
 
 function parseArgs(argv: string[]): Args {
     const out: Args = { _: [], flags: {} };
@@ -82,6 +85,30 @@ function dirArg(a: Args): string {
     const d = a._[1];
     if (!d) throw new UsageError('Pass the breakdown directory (the -o directory used with fetch).');
     return path.resolve(d);
+}
+
+/**
+ * The file every step reads and its exact time base. A variable-rate source gets a constant-rate copy
+ * (source/work_cfr.mp4), remade whenever the source changes (work_cfr.json records which source it came from).
+ */
+async function workingTimebase(dir: string, source: string): Promise<Timebase> {
+    const p = await probeRate(source);
+    if (!p.variable) return { rate: p.rate, fps: p.fps, frames: p.frames, start_time: p.start_time, file: 'source/video.mp4', sha256: await sha256File(source), cfr_copy: false };
+    const fromSha = await sha256File(source);
+    const copy = path.join(dir, 'source', 'work_cfr.mp4');
+    const record = path.join(dir, 'source', 'work_cfr.json');
+    const prev = await readJson<{ from_sha256: string; sha256: string }>(record);
+    let sha = prev && prev.from_sha256 === fromSha ? await sha256File(copy).catch(() => null) : null;
+    if (!sha || sha !== prev?.sha256) {
+        const fps = Math.round(p.avg_fps || p.fps);
+        log(`[breakdown] the source has a variable frame rate: making a constant ${fps} fps working copy (source/work_cfr.mp4)`);
+        await rm(copy, { force: true });
+        await cfrCopy(source, copy, fps);
+        sha = await sha256File(copy);
+        await writeJson(record, { from_sha256: fromSha, sha256: sha });
+    }
+    const q = await probeRate(copy);
+    return { rate: q.rate, fps: q.fps, frames: q.frames, start_time: q.start_time, file: 'source/work_cfr.mp4', sha256: sha, cfr_copy: true };
 }
 
 async function readJson<T>(file: string): Promise<T | null> {
@@ -172,36 +199,73 @@ async function resolveTranscript(dir: string, file: string | undefined, hasAudio
 async function analyze(a: Args) {
     const dir = dirArg(a);
     await requireFf();
-    const video = path.join(dir, 'source', 'video.mp4');
+    const source = path.join(dir, 'source', 'video.mp4');
     const meta = await readJson<Meta>(path.join(dir, 'source', 'meta.json'));
     if (!meta) throw new UsageError(`No source/meta.json in ${dir}. Run fetch first.`);
     const threshold = num(a, 'scene') ?? 0.3;
     if (!(threshold > 0 && threshold < 1)) throw new UsageError('--scene must be between 0 and 1.');
-
-    const overridesFile = path.join(dir, 'cuts_override.json');
-    const remembered: CutOverrides = a.flags['reset-cuts'] ? { add: [], remove: [] } : ((await readJson<CutOverrides>(overridesFile)) ?? { add: [], remove: [] });
-    const add = list(str(a, 'add-cut'));
-    const remove = list(str(a, 'remove-cut'));
-    if ([...add, ...remove].some((n) => !Number.isFinite(n) || n < 0)) throw new UsageError('--add-cut / --remove-cut take seconds, comma separated.');
-    const overrides = recordOverrides(remembered, add, remove);
-    if (add.length || remove.length || a.flags['reset-cuts']) await writeJson(overridesFile, overrides);
+    const addSec = list(str(a, 'add-cut'));
+    const addFrames = list(str(a, 'add-cut-frame'));
+    const removeSec = list(str(a, 'remove-cut'));
+    if ([...addSec, ...removeSec].some((n) => !Number.isFinite(n) || n < 0)) throw new UsageError('--add-cut / --remove-cut take seconds, comma separated.');
+    if (addFrames.some((n) => !Number.isInteger(n) || n <= 0)) throw new UsageError('--add-cut-frame takes whole frame numbers (the first frame of the new shot), comma separated.');
 
     log('[breakdown] probing');
+    const tb = await workingTimebase(dir, source);
+    const video = path.join(dir, tb.file);
     const facts = await probe(video);
     const maxDuration = num(a, 'max-duration') ?? 900;
     if (facts.duration > maxDuration) {
         // Frames and audio are decoded into memory; an unbounded input could exhaust it.
         throw new UsageError(`This video is ${Math.round(facts.duration)} s long; the limit is ${maxDuration} s (decoded frames and audio are held in memory). Trim it with ffmpeg, or raise --max-duration if the machine has the memory.`);
     }
+    if (addFrames.some((n) => n >= tb.frames)) throw new UsageError(`--add-cut-frame takes frames between 1 and ${tb.frames - 1}.`);
+
+    // Cut corrections are frames on this working file. Older ones in seconds are moved to frames; ones made on
+    // another file (the source changed) no longer point at anything and are dropped.
+    const overridesFile = path.join(dir, 'cuts_override.json');
+    let remembered: FrameOverrides = { version: 2, sha256: tb.sha256, add: [], remove: [] };
+    let rewrite = Boolean(a.flags['reset-cuts']);
+    if (!a.flags['reset-cuts']) {
+        const raw = await readJson<any>(overridesFile);
+        if (raw && raw.version === 2) {
+            if (raw.sha256 === tb.sha256) remembered = raw as FrameOverrides;
+            else {
+                log('[breakdown] The cut corrections were made on another video (the source changed): they are dropped.');
+                rewrite = true;
+            }
+        } else if (raw) {
+            remembered = migrateOverrides(raw, tb);
+            rewrite = true;
+        }
+    }
+    const snapped: Array<{ asked: number; frame: number; moved: number; mad: number | null }> = [];
+    for (const t of addSec) {
+        const center = Math.min(tb.frames - 1, Math.max(1, secToFrame(t, tb.rate)));
+        const first = Math.max(0, center - 3);
+        const diffs = await frameDiffsAround(video, tb, first, Math.min(7, tb.frames - first));
+        const s = snapToChange(diffs, first, center);
+        const frame = Math.min(tb.frames - 1, Math.max(1, s.frame));
+        snapped.push({ asked: t, frame, moved: frame - center, mad: s.mad });
+        if (s.mad === null) log(`[breakdown] --add-cut ${t}: no change within 2 frames, cut kept at frame ${frame}.`);
+        else if (frame !== center) log(`[breakdown] --add-cut ${t}: moved ${frame - center > 0 ? '+' : ''}${frame - center} frame(s) to frame ${frame}, where the picture changes.`);
+    }
+    const overrides = recordFrameOverrides(remembered, [...snapped.map((s) => s.frame), ...addFrames], removeSec.map((t) => secToFrame(t, tb.rate)));
+    if (addSec.length || addFrames.length || removeSec.length || rewrite) await writeJson(overridesFile, overrides);
+
     log('[breakdown] detecting cuts');
-    const scene = mergeCuts(await detectCuts(video, threshold), facts.duration);
+    // Both detectors report seconds from the first frame (ffmpeg's filters start the clock at 0).
+    const sceneRel = await detectCuts(video, threshold);
     log('[breakdown] measuring motion');
     const frames = await grayFrames(video);
     const pairs = pairStats(frames);
-    const fromDiff = a.flags['no-diff-cuts'] ? [] : diffCuts(pairs, scene);
-    const detected = mergeCuts([...scene, ...fromDiff], facts.duration);
-    const cuts = applyOverrides(detected, overrides, facts.duration);
-    const shotSpans = spans(cuts, facts.duration);
+    const fromDiff = a.flags['no-diff-cuts'] ? [] : diffCuts(pairs, sceneRel);
+    const detectedFrames = [...new Set([...sceneRel.map((t) => secToFrame(t, tb.rate)), ...fromDiff.map((t) => secToFrame(t, tb.rate))])].sort((x, y) => x - y);
+    const applied = applyFrameOverrides(detectedFrames, overrides);
+    const cutFrames = mergeFrameCuts(applied.detected, applied.manual, tb.frames, minShotFrames(tb.rate));
+    const toSec = (xs: number[]) => xs.map((f) => round3(frameToSec(f, tb.rate)));
+    const cuts = toSec(cutFrames);
+    const shotSpans = frameSpans(cutFrames, tb.frames, tb.rate);
     log(`[breakdown] ${shotSpans.length} shots`);
     const candidates = textCandidates(pairs, cuts);
     const shots: Shot[] = [];
@@ -222,11 +286,12 @@ async function analyze(a: Args) {
     const { script, speech } = buildScript(shots, transcript);
     const b: Breakdown = {
         schema: 'tt.breakdown.v1',
-        analysis_id: analysisId(facts.duration, cuts),
+        analysis_id: analysisId({ sha256: tb.sha256, rate: tb.rate, cuts: cutFrames, detector: DETECTOR_VERSION }),
         generated_at: new Date().toISOString(),
         source: meta,
         video: facts,
-        cuts: { threshold, detected, from_frame_diff: fromDiff, added: overrides.add, removed: overrides.remove, final: cuts },
+        timebase: tb,
+        cuts: { threshold, detected: toSec(detectedFrames), from_frame_diff: fromDiff, added: toSec(overrides.add), removed: toSec(overrides.remove), final: cuts, frames: { detected: detectedFrames, added: overrides.add, removed: overrides.remove, final: cutFrames } },
         pacing: pacing(shots, facts.duration),
         shots,
         audio,
@@ -238,7 +303,7 @@ async function analyze(a: Args) {
     };
     await writeJson(path.join(dir, 'breakdown.json'), b);
     print({
-        ok: true, dir, duration: facts.duration, shots: shots.length, pacing: b.pacing,
+        ok: true, dir, duration: facts.duration, rate: tb.rate, frames: tb.frames, ...(tb.cfr_copy ? { working_file: tb.file } : {}), ...(snapped.length ? { snapped } : {}), shots: shots.length, pacing: b.pacing,
         low_motion_shots: shots.filter((s) => s.motion.low_motion).map((s) => s.id),
         text_change_candidates: candidates.length,
         audio: { present: audio.present, bpm: audio.rhythm?.bpm ?? null, rhythm_reason: audio.rhythm_reason },

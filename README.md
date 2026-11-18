@@ -239,6 +239,7 @@ This repository is available under the [MIT License](./LICENSE).
 
 ## 👍 Credits
 
+- [HyperFrames](https://github.com/heygen-com/hyperframes) `reverse-any-video`: the frame-indexed measurement method the video breakdown follows (our own implementation)
 - [instagram-ai-plugin](https://github.com/proyecto26/instagram-ai-plugin): the operator, cookie store and CDP login this plugin ports
 - [marketingskills](https://github.com/coreyhaines31/marketingskills) (MIT, Corey Haines): the marketing skills the content and ads skills adapt
 - [notebooklm-ai-plugin](https://github.com/proyecto26/notebooklm-ai-plugin): Chrome DevTools login helpers

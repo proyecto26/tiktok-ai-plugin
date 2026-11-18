@@ -76,9 +76,18 @@ sheet `shot_NNN.jpg` and a dense timeline `shot_NNN_strip.jpg` (source time unde
 sampled more sparsely in proportion to length, and the hook (first 3 s) and shots with a text change get
 double density, always under the same tile cap.
 
+Frames are the unit. Every cut is the index of the first frame of the new shot, counted from 0 on
+`timebase.file` in `breakdown.json`; the seconds shown next to it are derived (`frame / fps`, 3
+decimals). A source with a variable frame rate (common in phone recordings) is analysed on a
+constant-rate copy, `source/work_cfr.mp4`, and every frame number refers to that copy.
+
 Open `storyboard.jpg` first. If the shot count looks wrong against it (animated transitions and
 dissolves are easy to miss; fast action can add false cuts), fix it now:
-`analyze <dir> --add-cut 5.1,9.4` or `--remove-cut 7.2`. Corrections are remembered.
+`analyze <dir> --add-cut 5.1,9.4` moves each time to the strongest picture change within 2 frames
+and reports where it landed (`snapped`); `--add-cut-frame 153` puts a cut exactly on that frame;
+`--remove-cut 7.2` removes the cut within one frame of that time. A cut you add is never dropped by
+the minimum shot length (a quarter of a second); a detected cut too close to it is. Corrections are
+remembered per working file: if the source changes, they are dropped and analyze says so.
 
 ### 4. Transcript
 

@@ -304,11 +304,11 @@ describe('transcript', () => {
 function fakeBreakdown(overrides: Partial<Breakdown> = {}): Breakdown {
     const img = (id: number) => ({ first: `shots/shot_00${id}_first.jpg`, last: `shots/shot_00${id}_last.jpg`, mid: `shots/shot_00${id}_mid.jpg`, sheet: `shots/shot_00${id}.jpg`, strip: `shots/shot_00${id}_strip.jpg`, first_t: 0, mid_t: 0, last_t: 0, strip_fps: 2, strip_times: [], timestamps_burned: true });
     const shots: Shot[] = [
-        { id: 1, start: 0, end: 2, duration: 2, motion: { static_ratio: 1, first_last_mad: 0, max_block_mad: 0, low_motion: true }, text_change_candidates: [{ t: 1, band: 'bottom' }], images: img(1), review: null },
-        { id: 2, start: 2, end: 6, duration: 4, motion: { static_ratio: 0.2, first_last_mad: 30, max_block_mad: 80, low_motion: false }, text_change_candidates: [], images: img(2), review: null },
+        { id: 1, start: 0, end: 2, duration: 2, first_frame: 0, end_frame: 60, motion: { static_ratio: 1, first_last_mad: 0, max_block_mad: 0, low_motion: true }, text_change_candidates: [{ t: 1, band: 'bottom' }], images: img(1), review: null },
+        { id: 2, start: 2, end: 6, duration: 4, first_frame: 60, end_frame: 180, motion: { static_ratio: 0.2, first_last_mad: 30, max_block_mad: 80, low_motion: false }, text_change_candidates: [], images: img(2), review: null },
     ];
     return {
-        schema: 'tt.breakdown.v1', analysis_id: analysisId(6, [2]), generated_at: '', source: { origin: 'local_file', ref: 'x.mp4', caption: '', audio_attribution: null } as any,
+        schema: 'tt.breakdown.v1', analysis_id: analysisId({ sha256: 's', rate: '30/1', cuts: [60], detector: 'd' }), generated_at: '', source: { origin: 'local_file', ref: 'x.mp4', caption: '', audio_attribution: null } as any,
         video: { duration: 6, width: 1080, height: 1920, fps: 30, rotation: 0, videoCodec: 'h264', audioCodec: 'aac', hasAudio: true, bitrate: null, formatName: 'mp4', encoder: null },
         cuts: { threshold: 0.3, detected: [2], from_frame_diff: [], added: [], removed: [], final: [2] }, pacing: pacing(shots, 6), shots,
         audio: { present: true, rhythm: { bpm: 120, periodicity: 0.5, beat_strength: 5, beat_consistency: 1, phase_s: 0, beats: [] }, cuts_on_beat_ratio: 1 } as any,
@@ -316,7 +316,7 @@ function fakeBreakdown(overrides: Partial<Breakdown> = {}): Breakdown {
     } as Breakdown;
 }
 const goodAnswers = () => ({
-    analysis_id: analysisId(6, [2]),
+    analysis_id: analysisId({ sha256: 's', rate: '30/1', cuts: [60], detector: 'd' }),
     hook: 'A title card asks a question', visual_style: 'flat colours, bold captions',
     structure: [{ label: 'hook', start: 0, end: 2 }, { label: 'demo', start: 2, end: 6 }],
     cast: [{ id: 'host', description: 'person at a desk', appears_in: [2] }],
@@ -341,11 +341,11 @@ describe('apply-review', () => {
     });
     test('answers written for another analysis are refused', () => {
         const a: any = goodAnswers();
-        a.analysis_id = analysisId(6, [2, 4]);
+        a.analysis_id = analysisId({ sha256: 's', rate: '30/1', cuts: [60, 120], detector: 'd' });
         expect(applyReview(fakeBreakdown(), a, null).errors.join(' ')).toMatch(/another analysis/);
         delete a.analysis_id;
         expect(applyReview(fakeBreakdown(), a, null).ok).toBe(false);
-        expect(analysisId(6, [2])).not.toBe(analysisId(6, [2.001]));
+        expect(analysisId({ sha256: 's', rate: '30/1', cuts: [60], detector: 'd' })).not.toBe(analysisId({ sha256: 's', rate: '30/1', cuts: [61], detector: 'd' }));
     });
     test('a transcript of another recording neither becomes the script nor confirms a voice', () => {
         const a = goodAnswers();

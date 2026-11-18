@@ -11,6 +11,7 @@ import { copyFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { ffmpeg, ffprobe, run, sec } from './ff.ts';
+import { frameToSec, secToFrame, type Timebase } from './timebase.ts';
 
 export const GRAY_W = 160;
 export const GRAY_H = 90;
@@ -115,6 +116,64 @@ export function recordOverrides(prev: CutOverrides, add: number[], remove: numbe
 export function applyOverrides(cuts: number[], o: CutOverrides, duration: number): number[] {
     const kept = cuts.filter((c) => !o.remove.some((r) => Math.abs(r - c) <= 0.1));
     return mergeCuts([...kept, ...o.add.filter((a) => a > 0 && a < duration)], duration);
+}
+
+/**
+ * Final cuts in frames (the first frame of each new shot). Every manual cut inside the video is kept; a
+ * detected cut is kept only at least `minFrames` from the ends, from the previous kept detected cut and from
+ * every manual cut (the spacing never drops what the user asked for).
+ */
+export function mergeFrameCuts(detected: number[], manual: number[], frames: number, minFrames: number): number[] {
+    const inside = (n: number) => Number.isInteger(n) && n > 0 && n < frames;
+    const m = [...new Set(manual.filter(inside))].sort((a, b) => a - b);
+    const kept: number[] = [];
+    for (const d of [...new Set(detected.filter(inside))].sort((a, b) => a - b)) {
+        if (d < minFrames || frames - d < minFrames) continue;
+        if (kept.length && d - kept[kept.length - 1] < minFrames) continue;
+        if (m.some((x) => Math.abs(x - d) < minFrames)) continue;
+        kept.push(d);
+    }
+    return [...new Set([...m, ...kept])].sort((a, b) => a - b);
+}
+
+/** Manual cut corrections in frames, bound to the working file they were made on. */
+export interface FrameOverrides {
+    version: 2;
+    sha256: string;
+    add: number[];
+    remove: number[];
+}
+
+/** As `recordOverrides`, in frames: the newest instruction wins over a remembered one within one frame. */
+export function recordFrameOverrides(prev: FrameOverrides, add: number[], remove: number[]): FrameOverrides {
+    const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+    const uniq = (xs: number[]) => [...new Set(xs)].sort((x, y) => x - y);
+    const keptAdd = prev.add.filter((a) => !remove.some((r) => near(a, r)));
+    const keptRemove = prev.remove.filter((r) => !add.some((a) => near(a, r)));
+    const newRemove = remove.filter((r) => !add.some((a) => near(a, r)));
+    return { version: 2, sha256: prev.sha256, add: uniq([...keptAdd, ...add]), remove: uniq([...keptRemove, ...newRemove]) };
+}
+
+/** Detected cuts minus those within one frame of a removal, and the manual additions. */
+export function applyFrameOverrides(detected: number[], o: FrameOverrides): { detected: number[]; manual: number[] } {
+    return { detected: detected.filter((c) => !o.remove.some((r) => Math.abs(r - c) <= 1)), manual: [...o.add] };
+}
+
+/** Corrections remembered in seconds (before frame cuts), moved to the nearest frame of the working file. */
+export function migrateOverrides(old: { add: number[]; remove: number[] }, tb: Timebase): FrameOverrides {
+    const f = (xs: number[]) => [...new Set((xs ?? []).filter((x) => Number.isFinite(x)).map((t) => secToFrame(t, tb.rate)))].sort((a, b) => a - b);
+    return { version: 2, sha256: tb.sha256, add: f(old.add), remove: f(old.remove) };
+}
+
+/** Shots from frame cuts: frames [first_frame, end_frame) and the seconds derived from them. */
+export function frameSpans(cuts: number[], frames: number, rate: string): Array<ShotSpan & { first_frame: number; end_frame: number }> {
+    const edges = [0, ...cuts, frames];
+    return edges.slice(0, -1).map((first, i) => {
+        const end = edges[i + 1];
+        const s = frameToSec(first, rate);
+        const e = frameToSec(end, rate);
+        return { id: i + 1, first_frame: first, end_frame: end, start: round3(s), end: round3(e), duration: round3(e - s) };
+    });
 }
 
 export interface ShotSpan {

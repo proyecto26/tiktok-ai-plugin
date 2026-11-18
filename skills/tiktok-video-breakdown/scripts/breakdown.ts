@@ -6,6 +6,7 @@
  * this file refuses any conclusion that has no observation behind it (speech without a
  * transcript, music or voice that nobody listened to).
  */
+import type { Timebase } from './timebase.ts';
 import type { AudioFacts } from './audio.ts';
 import type { Meta } from './source.ts';
 import type { Motion, ShotImages, TextCandidate, VideoFacts } from './shots.ts';
@@ -26,6 +27,9 @@ export interface Shot {
     start: number;
     end: number;
     duration: number;
+    /** Frames [first_frame, end_frame) on `timebase.file`; start/end/duration are derived from them. */
+    first_frame: number;
+    end_frame: number;
     motion: Motion;
     text_change_candidates: TextCandidate[];
     images: ShotImages;
@@ -70,7 +74,10 @@ export interface Breakdown {
     generated_at: string;
     source: Meta;
     video: VideoFacts;
-    cuts: { threshold: number; detected: number[]; from_frame_diff: number[]; added: number[]; removed: number[]; final: number[] };
+    /** The file every measurement was made on, its exact rate and frame count. */
+    timebase: Timebase;
+    /** Seconds (derived, 3 decimals) and, under `frames`, the frame indices they come from (the truth). */
+    cuts: { threshold: number; detected: number[]; from_frame_diff: number[]; added: number[]; removed: number[]; final: number[]; frames: { detected: number[]; added: number[]; removed: number[]; final: number[] } };
     pacing: { shots: number; median_shot_sec: number; mean_shot_sec: number; cuts_per_10s: number };
     shots: Shot[];
     audio: AudioFacts;
@@ -107,10 +114,14 @@ export interface TopReview {
     notes?: string[];
 }
 
-/** Stable id of a segmentation: same duration and cuts give the same id. */
-export function analysisId(duration: number, cuts: number[]): string {
+/** Version of the cut detectors: a new one gives new ids, so answers made on older evidence are refused. */
+export const DETECTOR_VERSION = 'scene+diff8@1';
+
+/** Stable id of a segmentation: the working file, its rate, the frame cuts and the detectors that made them. */
+export function analysisId(i: { sha256: string; rate: string; cuts: number[]; detector: string }): string {
+    const cuts = i.cuts;
     let h = 2166136261;
-    for (const ch of `${duration.toFixed(3)}|${cuts.map((c) => c.toFixed(3)).join(',')}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    for (const ch of `${i.sha256}|${i.rate}|${cuts.join(',')}|${i.detector}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
     return `a${h.toString(16).padStart(8, '0')}-${cuts.length + 1}`;
 }
 
