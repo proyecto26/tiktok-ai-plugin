@@ -103,13 +103,16 @@ export interface DownloadOptions {
     ops?: Operator;
 }
 
-/** Every URL in a message reduced to scheme, host and path (signed queries never reach output). */
+/** Every URL in a message loses its query and fragment (signed tokens live there); host and path stay. */
 export function scrubUrls(message: string): string {
-    return message.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (u) => redactUrl(u));
+    return message.replace(/(https?:\/\/[^\s"'<>?#]+)[?#][^\s"'<>]*/gi, '$1');
 }
 
 const PAGE_PREFIX = /^\s*(<!doctype|<html|<head|<body|<\?xml|<script|\{\s*"(statusCode|status_code|code)")/i;
 const SNIFF_BYTES = 65536;
+/** How much of a media body is read before it is trusted: enough for a page header split across chunks. */
+const MEDIA_SNIFF_BYTES = 2048;
+const CAPTION_TYPE = /^text\/vtt|^application\/(x-)?subrip/i;
 
 export async function downloadCdn(url: string, dest: string, opts: DownloadOptions = {}): Promise<{ bytes: number; contentType: string }> {
     try {
@@ -136,6 +139,8 @@ async function downloadInner(url: string, dest: string, opts: DownloadOptions): 
         if (!isAllowedCdn(current)) throw new CdnError('host_refused', `Refusing to download from a host that is not a TikTok CDN: ${redactUrl(current)}`);
         await ops.assertNoSignal();
         await ops.waitTurn();
+        // A signal raised while this request waited its turn stops it too.
+        await ops.assertNoSignal();
         controller = new AbortController();
         const wait = idle(idleMs, 'no answer');
         try {
@@ -189,13 +194,20 @@ async function downloadInner(url: string, dest: string, opts: DownloadOptions): 
         return p.captcha.test(text) || p.waf.test(text) || p.verify.test(text) || p.tooMany.test(text) || PAGE_PREFIX.test(text);
     };
     const media = MEDIA_TYPE.test(contentType);
-    // Sniff the start of the body whatever its declared type: a challenge page can be labelled as media.
-    // Non-media bodies are read up to SNIFF_BYTES only, each read under the idle timeout.
+    // Sniff the start of the body whatever its declared type: a challenge page can be labelled as media, and its
+    // header can be split across chunks. Reads come straight from the stream (the held chunks are replayed later),
+    // each under the idle timeout; non-media bodies are read up to SNIFF_BYTES only.
     let sniffed = 0;
-    const sniffLimit = media ? 1 : SNIFF_BYTES;
+    const sniffLimit = media ? MEDIA_SNIFF_BYTES : SNIFF_BYTES;
     try {
         while (sniffed < sniffLimit) {
-            const step = await next(`no data after ${sniffed} bytes`);
+            const wait = idle(idleMs, `no data after ${sniffed} bytes`);
+            let step: { done: boolean; value?: Uint8Array };
+            try {
+                step = await Promise.race([reader.read(), wait.p]);
+            } finally {
+                wait.cancel();
+            }
             if (step.done || !step.value) break;
             held.push(step.value);
             sniffed += step.value.length;
@@ -204,8 +216,12 @@ async function downloadInner(url: string, dest: string, opts: DownloadOptions): 
         release();
         throw e;
     }
-    const head = new TextDecoder('utf-8', { fatal: false }).decode(concat(held).subarray(0, media ? 4096 : SNIFF_BYTES));
-    if (!/^text\/vtt|^application\/(x-)?subrip/i.test(contentType) && isPage(head)) {
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(concat(held).subarray(0, sniffLimit));
+    // Captions are plain text that may mention anything: only a markup start or a missing WEBVTT header marks a page.
+    const page = CAPTION_TYPE.test(contentType)
+        ? PAGE_PREFIX.test(head) || /^\s*</.test(head) || (/^text\/vtt/i.test(contentType) && !/^\uFEFF?WEBVTT/.test(head))
+        : isPage(head) || (!media && /<!doctype|<html[\s>]/i.test(head));
+    if (page) {
         release();
         return stop(ops, 'challenge', `CDN answered a page instead of media at ${redactUrl(current)}`);
     }

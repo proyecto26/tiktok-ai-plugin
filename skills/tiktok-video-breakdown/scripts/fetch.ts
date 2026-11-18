@@ -11,6 +11,16 @@ import path from 'node:path';
 import { CdnError, downloadCdn, type Operator } from './cdn.ts';
 import type { Meta } from './source.ts';
 
+/** What an earlier fetch into this folder derived from its video: none of it belongs to the new source. */
+async function clearDerived(outDir: string): Promise<void> {
+    const { readdir } = await import('node:fs/promises');
+    for (const f of await readdir(outDir).catch(() => [] as string[])) {
+        if (f === 'transcript.json' || /^asr_out(\.(json|srt|vtt))?$/.test(f)) await rm(path.join(outDir, f), { force: true });
+    }
+    const src = path.join(outDir, 'source');
+    for (const f of await readdir(src).catch(() => [] as string[])) if (/^captions\..+\.vtt$/.test(f)) await rm(path.join(src, f), { force: true });
+}
+
 export type { Meta } from './source.ts';
 
 export class FetchError extends Error {
@@ -69,6 +79,7 @@ export async function fetchFromCapture(capture: string, id: string, outDir: stri
 
     const src = path.join(outDir, 'source');
     await mkdir(src, { recursive: true });
+    await clearDerived(outDir);
     const dest = path.join(src, 'video.mp4');
     let used: string | null = null;
     let bytes = 0;
@@ -138,8 +149,8 @@ export async function fetchFromFile(file: string, outDir: string): Promise<Meta>
     await mkdir(src, { recursive: true });
     const dest = path.join(src, 'video.mp4');
     if (path.resolve(file) !== path.resolve(dest)) await copyFile(file, dest);
-    // A local file replaces whatever an earlier fetch left: its captions belong to another video.
-    for (const f of await import('node:fs/promises').then((m) => m.readdir(src))) if (/^captions\..+\.vtt$/.test(f)) await rm(path.join(src, f), { force: true });
+    // A local file replaces whatever an earlier fetch left: its captions and transcript belong to another video.
+    await clearDerived(outDir);
     const meta: Meta = {
         schema: 'tt.breakdown.source.v1', origin: 'local_file', fetched_at: new Date().toISOString(), ref: path.basename(file), url: null, owner: null, post_id: null,
         caption: '', hashtags: [], metrics: { likes: null, comments: null, plays: null, shares: null, saves: null }, duration_sec: null, has_audio: null,

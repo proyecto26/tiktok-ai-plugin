@@ -2,10 +2,17 @@
  * Research over the `tiktok` operator's list reads (`hashtag`, `sound`, `videos` with `--capture … --json`).
  * Reads files only: no network, no session. Inputs are merged and deduped by post id before anything is counted.
  */
-import { median } from '../../tiktok-audit/scripts/audit.ts';
 import type { ReadResult, TtVideo } from '../../tiktok/scripts/read.ts';
 
 export const OUTLIER = { minSample: 8, ratio: 3 } as const;
+
+/** Middle value; the mean of the two middle values for an even count (this skill carries its own copy). */
+function median(xs: number[]): number | null {
+    if (!xs.length) return null;
+    const s = [...xs].sort((a, b) => a - b);
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
 const UNKNOWN = '(unknown)';
 
 export type AuthorResult =

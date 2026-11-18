@@ -241,3 +241,18 @@ describe('final review fixes: coverage needs terminal evidence', () => {
         expect(r.exhausted).toBe(false);
     });
 });
+
+describe('second review fixes: every page must be well formed', () => {
+    test('a page without statusCode is not proof of anything', () => {
+        const pg = page2(POST, ids(3), false, '0', '3');
+        delete (pg.body as { statusCode?: number }).statusCode;
+        const r = videosFromCapture(cap({ responses: [pg] }), { limit: 50 });
+        expect(r.exhausted).toBe(false);
+        expect(r.complete).toBe(false);
+    });
+    test('a malformed middle page breaks the chain', () => {
+        const bad = { path: POST, route: '@jdnichollsc', reqCursor: '3', body: { cursor: '6' } };
+        const r = videosFromCapture(cap({ responses: [page2(POST, ids(3), true, '0', '3'), bad as never, page2(POST, ids(3, 3), false, '6', '9')] }), { limit: 50 });
+        expect(r.exhausted).toBe(false);
+    });
+});

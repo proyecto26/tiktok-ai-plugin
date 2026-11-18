@@ -236,10 +236,17 @@ function assertOneRoute(pages: Kept[], what: string): void {
     if (routes.size > 1) throw new TtError('mixed_lists', `The capture mixes ${what} answers from ${[...routes].join(', ')}. Reload the one page you want, then capture again.`);
 }
 
+/** A list answer TikTok marked as a success: statusCode 0 and an item list (possibly empty). */
+function wellFormed(body: Obj): boolean {
+    return body.statusCode !== undefined && body.statusCode !== null && num(body.statusCode) === 0 && (Array.isArray(body.itemList) || body.itemList === undefined && body.hasMore === false);
+}
+
 /** The whole list was read: a continuous cursor chain from 0 to a last page with no more, nothing lost or cut. */
 function chainExhausted(c: Capture, pages: Kept[], returned: number, total: number, failed: boolean): boolean {
     if (!pages.length || failed || num(c.dropped) > 0 || num(c.stale) > 0 || returned < total) return false;
     for (let i = 0; i < pages.length; i++) {
+        // Every page must be a well-formed list answer; a malformed one proves nothing about the chain.
+        if (!wellFormed(pages[i].body)) return false;
         const rc = pages[i].r.reqCursor;
         if (rc === undefined) return false;
         if (i === 0 ? rc !== '0' : rc !== str(pages[i - 1].body.cursor)) return false;
@@ -261,7 +268,8 @@ function itemListRead(c: Capture, pages: Kept[], limit: number): ReadResult<TtVi
         }
     }
     const last = pages[pages.length - 1].body;
-    const failed = pages.some((p) => p.body.statusCode !== undefined && num(p.body.statusCode) !== 0);
+    // A page without an explicit success status, or without a list, is a failed page, not the end of the list.
+    const failed = pages.some((p) => !wellFormed(p.body));
     const page = paged(items, limit, last.hasMore === true || last.hasMore === 1, c.scrolls, failed);
     return { source: 'api', ...page, exhausted: chainExhausted(c, pages, page.data.length, items.length, failed) };
 }

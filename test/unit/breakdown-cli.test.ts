@@ -39,6 +39,16 @@ describe('transcript precedence', () => {
         writeFileSync(path.join(d, 'source/captions.eng-US.vtt'), 'WEBVTT\n');
         expect(await chooseTranscript(d, { asrCmd: 'asr {audio} {out}' })).toEqual({ kind: 'captions', path: path.join(d, 'source/captions.eng-US.vtt'), lang: 'eng-US' });
     });
+    test('captions follow the order fetch recorded in meta, not file names', async () => {
+        const d = dir();
+        writeFileSync(path.join(d, 'source/captions.spa-ES.vtt'), 'WEBVTT\n');
+        writeFileSync(path.join(d, 'source/captions.eng-US.vtt'), 'WEBVTT\n');
+        const captions = [
+            { lang: 'spa-ES', file: 'source/captions.spa-ES.vtt', source: 'tiktok' },
+            { lang: 'eng-US', file: 'source/captions.eng-US.vtt', source: 'tiktok' },
+        ];
+        expect(await chooseTranscript(d, { captions })).toEqual({ kind: 'captions', path: path.join(d, 'source/captions.spa-ES.vtt'), lang: 'spa-ES' });
+    });
     test('then the local recogniser (TT_ASR_CMD), then none', async () => {
         const d = dir();
         expect(await chooseTranscript(d, { asrCmd: 'asr {audio} {out}' })).toEqual({ kind: 'recogniser', cmd: 'asr {audio} {out}' });

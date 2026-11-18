@@ -110,6 +110,18 @@ describe('fetchFromFile', () => {
         const meta = await fetchFromFile(path.join(d, 'v.mp4'), path.join(d, 'out'));
         expect(meta).toMatchObject({ origin: 'local_file', ref: 'v.mp4', captions: [], video: { file: 'source/video.mp4', bytes: 1 } });
     });
+    test('a new source clears the transcript and recogniser output of the previous one', async () => {
+        const d = tmp();
+        const out = path.join(d, 'out');
+        writeFileSync(path.join(d, 'v.mp4'), 'x');
+        await fetchFromFile(path.join(d, 'v.mp4'), out);
+        writeFileSync(path.join(out, 'transcript.json'), '{"source":"tiktok_captions:eng"}');
+        writeFileSync(path.join(out, 'asr_out.json'), '{}');
+        writeFileSync(path.join(d, 'w.mp4'), 'yy');
+        await fetchFromFile(path.join(d, 'w.mp4'), out);
+        expect(existsSync(path.join(out, 'transcript.json'))).toBe(false);
+        expect(existsSync(path.join(out, 'asr_out.json'))).toBe(false);
+    });
     test('works with the tiktok operator folder absent', () => {
         const root = tmp();
         cpSync(path.resolve(import.meta.dir, '../../skills/tiktok-video-breakdown'), path.join(root, 'skills/tiktok-video-breakdown'), { recursive: true });

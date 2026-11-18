@@ -138,9 +138,14 @@ export type TranscriptChoice =
  * the TikTok caption track saved by fetch (source/captions.<lang>.vtt, first in name order); the owner's
  * local recogniser (TT_ASR_CMD); none, and speech stays unconfirmed.
  */
-export async function chooseTranscript(dir: string, opts: { file?: string; asrCmd?: string }): Promise<TranscriptChoice> {
+export async function chooseTranscript(dir: string, opts: { file?: string; asrCmd?: string; captions?: { lang: string; file: string }[] }): Promise<TranscriptChoice> {
     if (opts.file) return { kind: 'file', path: opts.file };
     if (await stat(path.join(dir, 'transcript.json')).then((s) => s.isFile(), () => false)) return { kind: 'existing' };
+    // The order fetch recorded (TikTok's own track order) wins over file names.
+    for (const c of opts.captions ?? []) {
+        const p = path.join(dir, c.file);
+        if (/^source\/captions\.[A-Za-z0-9-]+\.vtt$/.test(c.file) && (await stat(p).then((s) => s.isFile(), () => false))) return { kind: 'captions', path: p, lang: c.lang };
+    }
     const names = (await readdir(path.join(dir, 'source')).catch(() => [] as string[])).filter((n) => /^captions\.[A-Za-z0-9-]+\.vtt$/.test(n)).sort();
     if (names.length) return { kind: 'captions', path: path.join(dir, 'source', names[0]), lang: names[0].slice('captions.'.length, -'.vtt'.length) };
     if (opts.asrCmd?.trim()) return { kind: 'recogniser', cmd: opts.asrCmd };

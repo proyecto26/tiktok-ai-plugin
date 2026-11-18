@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { CDN_HOSTS, downloadCdn, isAllowedCdn, redactUrl, type Operator } from '../../skills/tiktok-video-breakdown/scripts/cdn.ts';
+import { CDN_HOSTS, downloadCdn, isAllowedCdn, redactUrl, scrubUrls, type Operator } from '../../skills/tiktok-video-breakdown/scripts/cdn.ts';
 import { clearSignal, readSignal, writeSignal } from '../../skills/tiktok/scripts/signal.ts';
 
 const dir = () => mkdtempSync(path.join(os.tmpdir(), 'tt-cdn-'));
@@ -77,7 +77,7 @@ describe('downloadCdn', () => {
         expect(f.calls[0].init.credentials).toBe('omit');
         expect(f.calls[0].init.redirect).toBe('manual');
         expect(turns).toBe(1);
-        expect(checks).toBe(1);
+        expect(checks).toBe(2); // before and after the pacing wait
     });
     test('a refused host never reaches fetch; the error is redacted', async () => {
         const f = fake([]);
@@ -99,7 +99,7 @@ describe('downloadCdn', () => {
         await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: ok.impl, ops: await realOps() });
         expect(ok.calls).toHaveLength(4);
         expect(turns).toBe(4);
-        expect(checks).toBe(4);
+        expect(checks).toBe(8); // before and after each pacing wait
         const many = fake([hop(1), hop(2), hop(3), hop(4)]);
         const e = await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: many.impl, ops: await realOps() }).catch((x: any) => x);
         expect(e.kind).toBe('too_many_redirects');
@@ -230,7 +230,61 @@ describe('final review fixes', () => {
             },
         });
         const f = fake([new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })]);
-        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps(), idleMs: 50 }).catch((x) => x)) as Error;
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps(), idleMs: 50 }).catch((x) => x)) as Error & { kind?: string };
+        expect(e.kind).toBe('download_stalled');
+    });
+});
+
+const chunked = (parts: string[], type: string) =>
+    new Response(
+        new ReadableStream<Uint8Array>({
+            start(c) {
+                for (const p of parts) c.enqueue(new TextEncoder().encode(p));
+                c.close();
+            },
+        }),
+        { status: 200, headers: { 'content-type': type } },
+    );
+
+describe('second review fixes', () => {
+    test('an HTML page split across chunks and labelled video/mp4 is a challenge', async () => {
+        const d = dir();
+        const f = fake([chunked(['<!DOC', 'TYPE html><body>captcha</body>'], 'video/mp4')]);
+        const e = (await downloadCdn(OK, path.join(d, 'v.mp4'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error;
         expect(e).toBeInstanceOf(Error);
+        expect(existsSync(path.join(d, 'v.mp4'))).toBe(false);
+        expect(await readSignal()).not.toBeNull();
+    });
+    test('a captcha page labelled text/vtt is a challenge', async () => {
+        const f = fake([chunked(['<html><body>Please complete the captcha</body></html>'], 'text/vtt')]);
+        const e = (await downloadCdn(OK, path.join(dir(), 'c.vtt'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error;
+        expect(e).toBeInstanceOf(Error);
+        expect(await readSignal()).not.toBeNull();
+    });
+    test('a real WEBVTT caption still downloads', async () => {
+        const f = fake([chunked(['WEBVTT\n\n00:00.000 --> 00:01.000\nhi\n'], 'text/vtt')]);
+        const r = await downloadCdn(OK, path.join(dir(), 'c.vtt'), { fetchImpl: f.impl, ops: await realOps() });
+        expect(r.bytes).toBeGreaterThan(0);
+    });
+    test('a non-media body whose second chunk is a page is a challenge', async () => {
+        const f = fake([chunked(['{"a":1}', '<html>captcha</html>'], 'application/json')]);
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error;
+        expect(e).toBeInstanceOf(Error);
+        expect(await readSignal()).not.toBeNull();
+    });
+    test('scrubUrls removes the query even when the path has parentheses', () => {
+        const s = scrubUrls('failed at https://v16-webapp.tiktokcdn.com/v(1).mp4?sig=SECRET123&x=(2) now');
+        expect(s).not.toContain('SECRET123');
+        expect(s).toContain('v16-webapp.tiktokcdn.com');
+    });
+    test('a signal written during the pacing wait stops the request', async () => {
+        const f = fake([media(4)]);
+        const ops = await realOps();
+        ops.waitTurn = async () => {
+            await writeSignal('challenge', 'during wait');
+        };
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops }).catch((x) => x)) as Error;
+        expect(e).toBeInstanceOf(Error);
+        expect(f.calls).toHaveLength(0);
     });
 });

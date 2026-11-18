@@ -155,7 +155,8 @@ async function loadTranscript(dir: string): Promise<Transcript | null> {
 
 /** analyze's transcript, in the documented order; whatever it picks is written to transcript.json. */
 async function resolveTranscript(dir: string, file: string | undefined, hasAudio: boolean): Promise<Transcript | null> {
-    const choice = await chooseTranscript(dir, { file: file ? path.resolve(file) : undefined, asrCmd: process.env.TT_ASR_CMD });
+    const captions = (await readJson<Meta>(path.join(dir, 'source', 'meta.json')))?.captions;
+    const choice = await chooseTranscript(dir, { file: file ? path.resolve(file) : undefined, asrCmd: process.env.TT_ASR_CMD, captions });
     let t: Transcript | null = null;
     if (choice.kind === 'existing') return loadTranscript(dir);
     if (choice.kind === 'file') t = await importTranscript(choice.path);
@@ -269,7 +270,7 @@ async function transcribe(a: Args) {
     const lang = str(a, 'lang') ?? null;
     const imp = str(a, 'import');
     const cmd = str(a, 'cmd') ?? (process.env.TT_ASR_CMD?.trim() || undefined);
-    const caps = imp || cmd ? null : await chooseTranscript(dir, {});
+    const caps = imp || cmd ? null : await chooseTranscript(dir, { captions: (await readJson<Meta>(path.join(dir, 'source', 'meta.json')))?.captions });
     let t: Transcript;
     if (imp) t = await importTranscript(path.resolve(imp), lang);
     else if (caps?.kind === 'captions') t = await captionsTranscript(caps.path, caps.lang);

@@ -1,7 +1,7 @@
 // tiktok-research: per-author outliers after dedupe, zero median, scan by sound id, partial scope, CLI.
 import { describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -95,5 +95,12 @@ describe('final review fixes: unattributed posts', () => {
         const r = outliers([list([...Array.from({ length: 8 }, () => anon(100)), anon(1000)])]);
         expect(r.authors.some((a) => 'median' in a)).toBe(false);
         expect(r.authors.find((a) => a.author === '(unknown)')).toEqual({ author: '(unknown)', n: 9, reason: 'unattributed' } as never);
+    });
+});
+
+describe('second review fixes: self-contained skill', () => {
+    test('research imports nothing from another skill except the operator types', () => {
+        const src = readFileSync(path.resolve(import.meta.dir, '../../skills/tiktok-research/scripts/research.ts'), 'utf8');
+        expect(src).not.toContain("from '../../tiktok-audit");
     });
 });

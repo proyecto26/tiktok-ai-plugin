@@ -108,7 +108,7 @@ describe('single video and comments', () => {
     });
     test('live comment/list shape normalizes', () => {
         const r = commentsFromCapture(cap({ responses: [{ path: '/api/comment/list/', body: fx('comment-list.redacted.json') }] }), {});
-        expect(r).toMatchObject({ source: 'api', complete: true, data: [{ id: '7366955290338870022', likes: 3, replies: 0, createTime: 1715252962, author: 'synthetic_commenter1' }] });
+        expect(r).toMatchObject({ source: 'api', complete: true, data: [{ id: '7000000000000000101', likes: 2, replies: 0, createTime: 1771000000, author: 'synthetic_commenter1' }] });
     });
     test('video opened in-app with only comments captured → not_found that says what to do', () => {
         const c = cap({ url: 'https://www.tiktok.com/@jdnichollsc/video/7366850969226808581', responses: [{ path: '/api/comment/list/', body: fx('comment-list.redacted.json') }] });
