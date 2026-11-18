@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "total": 100,
+  "note": "Twelve items, 100 points. Score each honestly; most first-pass profiles land in the 30s and 40s. The name, the bio and the pinned three weigh most: they are what a stranger arriving from one video reads before deciding to follow.",
+  "items": [
+    {
+      "id": "name_field",
+      "points": 12,
+      "full_marks": "The display name carries the name plus what the account is about in words people search (\"Dana Ruiz | Proposal templates\"). It is the bold line above the handle and is searchable.",
+      "common_fail": "Just a name, or a name with an emoji."
+    },
+    {
+      "id": "bio_first_line",
+      "points": 12,
+      "full_marks": "The bio is short on TikTok; its first line names who this is for and what changes for them, in their words.",
+      "common_fail": "\"Creator | Coffee | Dog dad\"."
+    },
+    {
+      "id": "bio_body",
+      "points": 8,
+      "full_marks": "The rest of the bio carries one proof or one offer and reads as words, not a pipe-separated list.",
+      "common_fail": "Keyword soup, or nothing."
+    },
+    {
+      "id": "pinned_three",
+      "points": 10,
+      "full_marks": "Up to three pinned videos doing three different jobs: the best proof, the clearest explanation of the offer, the best introduction to the person.",
+      "common_fail": "Nothing pinned, so the top of the grid is whatever was posted last."
+    },
+    {
+      "id": "link",
+      "points": 8,
+      "full_marks": "When the account has the bio link option, one link to one destination that matches the bio promise.",
+      "common_fail": "A link hub with ten buttons, or no link where one is available."
+    },
+    {
+      "id": "highlights",
+      "points": 8,
+      "full_marks": "Playlists (or series) group the videos a newcomer should binge, named by what they get.",
+      "common_fail": "No playlists, or playlists named \"Part 1\", \"Misc\"."
+    },
+    {
+      "id": "grid_legibility",
+      "points": 8,
+      "full_marks": "Covers carry a readable title, so the grid explains itself at thumbnail size.",
+      "common_fail": "Covers are random mid-video frames."
+    },
+    {
+      "id": "photo",
+      "points": 6,
+      "full_marks": "A clear face or mark that reads at the small circle size.",
+      "common_fail": "A busy photo or a tiny logo."
+    },
+    {
+      "id": "handle",
+      "points": 6,
+      "full_marks": "The handle is easy to say and spell, and matches the name used elsewhere.",
+      "common_fail": "Underscores and numbers nobody can remember."
+    },
+    {
+      "id": "category_contact",
+      "points": 6,
+      "full_marks": "A business or creator account shows a way to make contact when the account sells something.",
+      "common_fail": "An offer in the bio and no way to reach the person."
+    },
+    {
+      "id": "recent_activity",
+      "points": 10,
+      "full_marks": "Posted in the last 7 days and at a steady pace (the audit cadence shows it).",
+      "common_fail": "A gap of weeks at the top of the grid."
+    },
+    {
+      "id": "story_presence",
+      "points": 6,
+      "full_marks": "Replies to comments, stories or LIVE show a person behind the account.",
+      "common_fail": "Only polished uploads, no sign of a person."
+    }
+  ],
+  "source": "Structure and weights from instagram-agent-skill profile-rubric.json (MIT, (c) 2026 Jake Schincariol), through instagram-ai-plugin; item text rewritten for TikTok by tiktok-ai-plugin."
+}

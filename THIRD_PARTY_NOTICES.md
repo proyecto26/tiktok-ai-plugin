@@ -12,6 +12,8 @@ Used in: `skills/tiktok-content/scripts/{caption-lint,hook-score,beats,ai-tells}
 `hookscore.py`, `beats.py`, `detect.py`, `humanize.py`; TikTok rules and the hook triple added by this plugin, marked in
 each file), and `skills/tiktok-content/scripts/{hooks,slop}.json` (upstream content verbatim; the `tiktok` block in each
 is ours).
+Also `skills/tiktok-audit/references/profile-rubric.json` (structure and weights; item text rewritten) and the metric
+framework of `skills/tiktok-audit/references/metrics.md`.
 
 ```
 MIT License
