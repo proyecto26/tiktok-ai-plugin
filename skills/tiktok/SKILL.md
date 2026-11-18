@@ -25,6 +25,8 @@ npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 | `videos --capture <file> [--limit N]` | Posts (default 20, max 200), videos and photo posts |
 | `video --capture <file>` | One post |
 | `comments --capture <file> [--limit N]` | Comments of a post |
+| `hashtag --capture <file> [--limit N]` | Posts of a hashtag page (`/tag/<name>`) |
+| `sound --capture <file> [--limit N]` | Posts of a sound page (`/music/<slug>-<id>`) |
 | `publish prepare\|begin\|finish\|reconcile\|status` | Publish a video or photo post through TikTok Studio (see below) |
 
 ## Reading through your own Chrome
@@ -42,6 +44,14 @@ signed in:
    the page then fetches `/api/comment/list/` and the hook copies it. Loading a post URL directly is the
    request that got a 403 once; avoid it.
 4. Save the returned JSON to a file and run the matching command above.
+
+Lists also carry `exhausted`: `true` only when the whole list was read — every page from cursor 0 to the last
+one, nothing dropped, nothing cut by `--limit`. Anything else is a sample: say "sample of N posts", never "the
+account". The hook tags each answer with the list page it was requested on (profile, tag or music page) and
+discards answers that arrive after the tab moved to another list (`stale`); answers from two list pages in one
+capture are refused with `mixed_lists`. A hook installed by an older capture.js has no list identity: reload the
+page before capturing. Captures now also carry each post's play and caption URLs: they are signed, never print
+or share them.
 
 Every result is `{source, data, complete, reason?}`. `complete: false` says why: `signed_list_api` (no list
 answer was captured, only what the page embedded), `not_scrolled_far_enough`, `request_budget`,

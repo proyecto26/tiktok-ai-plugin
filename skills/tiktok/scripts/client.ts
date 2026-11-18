@@ -4,7 +4,7 @@ import { waitTurn } from './throttle.ts';
 
 export type TtErrorKind =
     | 'auth' | 'challenge' | 'rate_limited' | 'not_found' | 'private' | 'unexpected_page' | 'network' | 'blocked_by_signal'
-    | 'invalid_draft' | 'approval_mismatch' | 'publish_busy' | 'page_mismatch';
+    | 'invalid_draft' | 'approval_mismatch' | 'publish_busy' | 'page_mismatch' | 'mixed_lists';
 
 export class TtError extends Error {
     constructor(

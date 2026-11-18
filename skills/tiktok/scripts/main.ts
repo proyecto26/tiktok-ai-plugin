@@ -8,7 +8,7 @@ import { resolveCookiePath, resolveDataDir } from './paths.ts';
 import { assertNoSignal, clearSignal, readSignal, writeSignal } from './signal.ts';
 import { TtClient } from './client.ts';
 import { PUBLISH_BOOLEANS, PUBLISH_HELP, publishCommand } from './publish/cli.ts';
-import { commentsFromCapture, parseCapture, profileFromCapture, videoFromCapture, videosFromCapture } from './read.ts';
+import { commentsFromCapture, hashtagFromCapture, parseCapture, profileFromCapture, soundFromCapture, videoFromCapture, videosFromCapture } from './read.ts';
 
 /** Identity request. CANDIDATE endpoint, confirmed live in plan Task 4. */
 export const IDENTITY_URL = 'https://www.tiktok.com/passport/web/account/info/?aid=1459';
@@ -37,6 +37,9 @@ Reads (from a capture made in your own Chrome with scripts/browser/capture.js):
   videos   --capture <file> [--limit N]  Posts (default 20, max 200)
   video    --capture <file>              One post
   comments --capture <file> [--limit N]  Comments of a post
+  hashtag  --capture <file> [--limit N]  Posts of a hashtag page (/tag/<name>)
+  sound    --capture <file> [--limit N]  Posts of a sound page (/music/<slug>-<id>)
+  Lists say "exhausted": true only when the whole list was read (every page, nothing cut).
 
 ${PUBLISH_HELP}
 
@@ -140,7 +143,9 @@ export async function main(argv: string[]): Promise<number> {
         case 'profile':
         case 'videos':
         case 'video':
-        case 'comments': {
+        case 'comments':
+        case 'hashtag':
+        case 'sound': {
             const file = flags.capture;
             if (typeof file !== 'string') throw new Error(`${command} needs --capture <file> (made with scripts/browser/capture.js)`);
             // One account signal stops every transport, browser captures included.
@@ -160,6 +165,8 @@ export async function main(argv: string[]): Promise<number> {
                 command === 'profile' ? profileFromCapture(cap)
                 : command === 'videos' ? videosFromCapture(cap, { limit })
                 : command === 'video' ? videoFromCapture(cap)
+                : command === 'hashtag' ? hashtagFromCapture(cap, { limit })
+                : command === 'sound' ? soundFromCapture(cap, { limit })
                 : commentsFromCapture(cap, { limit });
             out(result);
             return 0;

@@ -11,14 +11,40 @@
 //      main.ts videos --capture <file> [--limit N]
 (() => {
     if (location.origin !== 'https://www.tiktok.com') return { error: 'not a www.tiktok.com page' };
-    const KEEP = /^\/api\/(post\/item_list|comment\/list|item\/detail)\/?$/;
+    const KEEP = /^\/api\/(post\/item_list|comment\/list|item\/detail|challenge\/item_list|music\/item_list)\/?$/;
     const MAX_RESPONSES = 40;
     const MAX_SCROLLS = 10;
     const CHALLENGE = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"|captcha-verify|secsdk-captcha/;
     const w = window;
+    // Which list the tab shows: a profile, a tag or a music page. Other paths (a post opened in-page) keep the list.
+    const listKey = () => {
+        const p = new URL(location.href).pathname;
+        const m = p.match(/^\/@([^/]+)/);
+        if (m) return '@' + m[1].toLowerCase();
+        const t = p.match(/^\/(tag|music)\/([^/]+)/);
+        if (t) return t[1] + '/' + t[2].toLowerCase();
+        return w.__ttState ? w.__ttState.key : p;
+    };
+    // A move to another list clears what was kept and starts a new generation.
+    const sync = () => {
+        const s = w.__ttState;
+        if (!s) return; // a hook installed by an older capture.js: reload the page to get list identity
+        const k = listKey();
+        if (k !== s.key) {
+            s.key = k;
+            s.gen++;
+            s.responses = [];
+        }
+    };
     if (!w.__ttCapture) {
-        const state = { responses: [], scrolls: 0, dropped: 0, challenge: false, rateLimited: false };
-        const keep = (url, text, status) => {
+        const state = { responses: [], scrolls: 0, dropped: 0, stale: 0, challenge: false, rateLimited: false, key: listKey(), gen: 0 };
+        w.__ttState = state;
+        // Called when a request is sent: which list it belongs to.
+        const dispatch = () => {
+            sync();
+            return { route: state.key, gen: state.gen };
+        };
+        const keep = (url, text, status, tag) => {
             try {
                 const u = new URL(url, location.href);
                 if (!KEEP.test(u.pathname)) return;
@@ -33,23 +59,32 @@
                     state.challenge = true;
                     return;
                 }
+                // An answer to a request sent on another list page (the tab moved on) is not this list's.
+                sync();
+                if (!tag || tag.gen !== state.gen) {
+                    state.stale++;
+                    return;
+                }
                 if (state.responses.length >= MAX_RESPONSES) {
                     state.dropped++;
                     return;
                 }
                 // One tab keeps the answers of every post opened in it; aweme_id says which post a page belongs to.
                 const itemId = u.searchParams.get('aweme_id') || u.searchParams.get('item_id') || u.searchParams.get('itemId') || undefined;
-                state.responses.push({ path: u.pathname, itemId, body: JSON.parse(text) });
+                const cur = u.searchParams.get('cursor');
+                const reqCursor = cur !== null && /^\d+$/.test(cur) ? cur : undefined;
+                state.responses.push({ path: u.pathname, itemId, route: tag.route, reqCursor, body: JSON.parse(text) });
             } catch {
                 // not JSON or not ours: ignore
             }
         };
         const origFetch = w.fetch;
         w.fetch = async function (...args) {
+            const tag = dispatch();
             const res = await origFetch.apply(this, args);
             try {
                 const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-                if (url) res.clone().text().then((t) => keep(url, t, res.status), () => {});
+                if (url) res.clone().text().then((t) => keep(url, t, res.status, tag), () => {});
             } catch {
                 // never break the page
             }
@@ -57,9 +92,10 @@
         };
         const origOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+            const tag = dispatch();
             this.addEventListener('load', () => {
                 try {
-                    if (this.responseType === '' || this.responseType === 'text') keep(String(url), this.responseText, this.status);
+                    if (this.responseType === '' || this.responseType === 'text') keep(String(url), this.responseText, this.status, tag);
                 } catch {
                     // ignore
                 }
@@ -101,14 +137,24 @@
             },
         };
     };
+    const video = (v) => (!v || typeof v !== 'object' ? {} : {
+        duration: v.duration,
+        width: v.width,
+        height: v.height,
+        playAddr: v.playAddr,
+        downloadAddr: v.downloadAddr,
+        bitrateInfo: Array.isArray(v.bitrateInfo) ? v.bitrateInfo.slice(0, 3).map((b) => ({ PlayAddr: { UrlList: b && b.PlayAddr && b.PlayAddr.UrlList } })) : undefined,
+        subtitleInfos: Array.isArray(v.subtitleInfos) ? v.subtitleInfos.map((x) => ({ LanguageCodeName: x.LanguageCodeName, Url: x.Url, Format: x.Format, Source: x.Source })) : undefined,
+    });
+    const music = (m) => (!m || typeof m !== 'object' ? {} : { title: m.title, id: m.id, authorName: m.authorName, original: m.original });
     const item = (i) => (!i || typeof i !== 'object' ? {} : {
         id: i.id,
         desc: i.desc,
         createTime: i.createTime,
         stats: i.stats,
-        video: { duration: i.video && i.video.duration },
+        video: video(i.video),
         imagePost: i.imagePost ? { images: (i.imagePost.images || []).map(() => ({})) } : undefined,
-        music: { title: i.music && i.music.title },
+        music: music(i.music),
         challenges: (i.challenges || []).map((c) => ({ title: c.title })),
         textExtra: (i.textExtra || []).map((t) => ({ hashtagName: t.hashtagName })),
         author: { uniqueId: i.author && i.author.uniqueId },
@@ -129,6 +175,7 @@
     };
     const vd = scope['webapp.video-detail'];
     const s = w.__ttCapture.state;
+    sync();
     return JSON.stringify({
         schema: 'tt.capture.v1',
         url: location.href.split('?')[0],
@@ -137,9 +184,10 @@
             'webapp.user-detail': user(scope['webapp.user-detail']),
             'webapp.video-detail': vd && { statusCode: vd.statusCode, statusMsg: vd.statusMsg, itemInfo: vd.itemInfo && { itemStruct: item(vd.itemInfo.itemStruct || {}) } },
         },
-        responses: s.responses.map((r) => ({ path: r.path, itemId: r.itemId, body: body(r.path, r.body) })),
+        responses: s.responses.map((r) => ({ path: r.path, itemId: r.itemId, route: r.route, reqCursor: r.reqCursor, body: body(r.path, r.body) })),
         scrolls: s.scrolls,
         dropped: s.dropped,
+        stale: s.stale,
         rateLimited: s.rateLimited,
         challenge: s.challenge || !!document.querySelector('#captcha-verify-container, #captcha_container, .captcha-verify-container, [class*="secsdk-captcha"]'),
     });
