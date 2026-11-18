@@ -44,7 +44,49 @@ describe.skipIf(!HAS_FFMPEG)('analyze on frames', () => {
         ff([...two('red', 'blue'), '-output_ts_offset', '0.5', fx('offset.mp4')]);
         ff([...two('red', 'blue', 30, 15, 1), '-fps_mode', 'vfr', fx('vfr.mp4')]);
         ff([...two('green', 'white', 30, 15, 1), '-fps_mode', 'vfr', fx('vfr2.mp4')]);
+        // Video track starting 0.5 s after the file's clock (audio from 0), as phones and editors write.
+        ff(['-itsoffset', '0.5', '-i', fx('cfr.mp4'), '-f', 'lavfi', '-i', 'sine=d=4.5', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', fx('late.mp4')]);
+        // A stream-copy trim: the edit list hides the packets before the in-point (red 0-2 s, blue 2-5 s once trimmed).
+        ff([...two('red', 'blue', 30, 30, 3), '-g', '60', fx('long.mp4')]);
+        ff(['-ss', '1', '-i', fx('long.mp4'), '-c', 'copy', fx('trim.mp4')]);
     }, 120_000);
+    /** Mean RGB of an image, from a 1x1 scale. */
+    const rgb = (file: string) => {
+        const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', file, '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { encoding: 'buffer' });
+        return [...r.stdout.subarray(0, 3)];
+    };
+    const decodedFrames = (file: string) =>
+        Number(spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', file], { encoding: 'utf8' }).stdout.trim());
+
+    test('a video track that starts after the file clock: cut and shot images on the video', () => {
+        const { dir, b } = analyzeFixture(fx('late.mp4'));
+        expect(b.cuts.frames.final).toEqual([60]);
+        const [r, , bl] = rgb(path.join(dir, b.shots[1].images.first));
+        expect(bl).toBeGreaterThan(r); // shot 2 opens on blue, not on the red before the cut
+    }, 60_000);
+    test('frames hidden by an edit list are not counted', () => {
+        const { b } = analyzeFixture(fx('trim.mp4'));
+        expect(b.timebase).toMatchObject({ cfr_copy: false, frames: decodedFrames(fx('trim.mp4')) });
+        expect(b.cuts.frames.final).toEqual([60]);
+    }, 60_000);
+    test('a manual cut that leaves a very short shot is analysed', () => {
+        const { b } = analyzeFixture(fx('cfr.mp4'), ['--add-cut-frame', '117']);
+        expect(b.cuts.frames.final).toEqual([60, 117]);
+        expect(b.shots.map((x: any) => x.end_frame - x.first_frame)).toEqual([60, 57, 3]);
+    }, 60_000);
+    test('--add-cut outside the video is refused and nothing is remembered', () => {
+        const { dir } = analyzeFixture(fx('cfr.mp4'));
+        expect(cli('analyze', dir, '--add-cut', '10').code).toBe(2);
+        expect(existsSync(path.join(dir, 'cuts_override.json'))).toBe(false);
+    }, 60_000);
+    test('removals in seconds keep the 0.1 s reach (typed and migrated)', () => {
+        const { dir } = analyzeFixture(fx('cfr.mp4'));
+        expect(cli('analyze', dir, '--remove-cut', '2.08').code).toBe(0);
+        expect(bd(dir).cuts.frames.final).toEqual([]);
+        writeFileSync(path.join(dir, 'cuts_override.json'), JSON.stringify({ add: [], remove: [1.92] }));
+        expect(cli('analyze', dir).code).toBe(0);
+        expect(bd(dir).cuts.frames.final).toEqual([]);
+    }, 60_000);
     afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
     test('hard cut lands on its exact frame', () => {

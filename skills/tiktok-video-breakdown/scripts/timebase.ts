@@ -19,6 +19,11 @@ export interface Timebase {
     frames: number;
     /** Presentation time of the first frame, in seconds; frame indices count from it. */
     start_time: number;
+    /**
+     * Seconds from the start of the file's clock (where ffmpeg filters and `-ss` count from) to the first
+     * video frame: non-zero when the video track starts after the audio. Filter times minus this are frame times.
+     */
+    clock_offset: number;
     /** The file every step reads, relative to the breakdown folder, with forward slashes. */
     file: string;
     sha256: string;
@@ -63,8 +68,8 @@ export function countUneven(pts: number[], fps: number): number {
 }
 
 /** Rate, exact frame count (packets, no decode), first-frame time and whether the frames are unevenly spaced. */
-export async function probeRate(file: string): Promise<{ rate: string; fps: number; avg_fps: number; frames: number; start_time: number; variable: boolean }> {
-    const r = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=r_frame_rate,avg_frame_rate,nb_read_packets,start_time:packet=pts_time', '-of', 'json', file]);
+export async function probeRate(file: string): Promise<{ rate: string; fps: number; avg_fps: number; frames: number; start_time: number; clock_offset: number; variable: boolean }> {
+    const r = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate,avg_frame_rate,start_time:packet=pts_time,flags:format=start_time', '-of', 'json', file]);
     if (r.code !== 0) throw new Error(`ffprobe could not read ${file}: ${r.stderr.trim().slice(-300)}`);
     const j = JSON.parse(r.stdout.toString('utf8'));
     const v = j.streams?.[0];
@@ -78,10 +83,14 @@ export async function probeRate(file: string): Promise<{ rate: string; fps: numb
     } catch {
         avg = fps;
     }
-    const pts = (j.packets ?? []).map((p: any) => Number(p.pts_time)).filter((n: number) => Number.isFinite(n));
+    // Packets an edit list discards (flag D, e.g. before the in-point of a stream-copy trim) are never shown.
+    const shown = (j.packets ?? []).filter((p: any) => !String(p.flags ?? '').includes('D'));
+    const pts = shown.map((p: any) => Number(p.pts_time)).filter((n: number) => Number.isFinite(n));
     const start = pts.length ? Math.min(...pts) : Number(v.start_time) || 0;
+    const fileStart = Number(j.format?.start_time);
+    const clock = Number.isFinite(fileStart) ? Math.max(0, start - Math.max(0, fileStart)) : 0;
     const variable = Math.abs(avg - fps) / fps > 0.005 || countUneven(pts, fps) > 0;
-    return { rate: `${nominal.num}/${nominal.den}`, fps, avg_fps: avg, frames: Number(v.nb_read_packets) || pts.length, start_time: start, variable };
+    return { rate: `${nominal.num}/${nominal.den}`, fps, avg_fps: avg, frames: pts.length, start_time: start, clock_offset: Math.round(clock * 1e6) / 1e6, variable };
 }
 
 /** sha256 of a file, streamed. */

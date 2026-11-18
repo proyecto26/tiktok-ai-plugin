@@ -22,7 +22,7 @@ describe('frame cuts', () => {
         expect(applyFrameOverrides([30, 60, 90], b)).toEqual({ detected: [30, 60, 90], manual: [62] });
     });
     test('old overrides migrate', () => {
-        const tb = { rate: '30/1', fps: 30, frames: 120, start_time: 0, file: 'source/video.mp4', sha256: 's', cfr_copy: false };
+        const tb = { rate: '30/1', fps: 30, frames: 120, start_time: 0, clock_offset: 0, file: 'source/video.mp4', sha256: 's', cfr_copy: false };
         expect(migrateOverrides({ add: [2.0, 3.033], remove: [1.5] }, tb)).toEqual({ version: 2, sha256: 's', add: [60, 91], remove: [45] });
     });
     test('spans carry frames and derived seconds', () => {

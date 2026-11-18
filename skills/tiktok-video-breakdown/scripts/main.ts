@@ -93,7 +93,7 @@ function dirArg(a: Args): string {
  */
 async function workingTimebase(dir: string, source: string): Promise<Timebase> {
     const p = await probeRate(source);
-    if (!p.variable) return { rate: p.rate, fps: p.fps, frames: p.frames, start_time: p.start_time, file: 'source/video.mp4', sha256: await sha256File(source), cfr_copy: false };
+    if (!p.variable) return { rate: p.rate, fps: p.fps, frames: p.frames, start_time: p.start_time, clock_offset: p.clock_offset, file: 'source/video.mp4', sha256: await sha256File(source), cfr_copy: false };
     const fromSha = await sha256File(source);
     const copy = path.join(dir, 'source', 'work_cfr.mp4');
     const record = path.join(dir, 'source', 'work_cfr.json');
@@ -108,7 +108,7 @@ async function workingTimebase(dir: string, source: string): Promise<Timebase> {
         await writeJson(record, { from_sha256: fromSha, sha256: sha });
     }
     const q = await probeRate(copy);
-    return { rate: q.rate, fps: q.fps, frames: q.frames, start_time: q.start_time, file: 'source/work_cfr.mp4', sha256: sha, cfr_copy: true };
+    return { rate: q.rate, fps: q.fps, frames: q.frames, start_time: q.start_time, clock_offset: q.clock_offset, file: 'source/work_cfr.mp4', sha256: sha, cfr_copy: true };
 }
 
 async function readJson<T>(file: string): Promise<T | null> {
@@ -220,12 +220,16 @@ async function analyze(a: Args) {
         throw new UsageError(`This video is ${Math.round(facts.duration)} s long; the limit is ${maxDuration} s (decoded frames and audio are held in memory). Trim it with ffmpeg, or raise --max-duration if the machine has the memory.`);
     }
     if (addFrames.some((n) => n >= tb.frames)) throw new UsageError(`--add-cut-frame takes frames between 1 and ${tb.frames - 1}.`);
+    const lastSec = frameToSec(tb.frames, tb.rate);
+    if (addSec.some((t) => t <= 0 || t >= lastSec)) throw new UsageError(`--add-cut takes times inside the video, between 0 and ${round3(lastSec)} s.`);
 
     // Cut corrections are frames on this working file. Older ones in seconds are moved to frames; ones made on
     // another file (the source changed) no longer point at anything and are dropped.
     const overridesFile = path.join(dir, 'cuts_override.json');
     let remembered: FrameOverrides = { version: 2, sha256: tb.sha256, add: [], remove: [] };
     let rewrite = Boolean(a.flags['reset-cuts']);
+    // Removals remembered in seconds are resolved after detection, with the 0.1 s reach they had then.
+    let migratedRemoveSec: number[] = [];
     if (!a.flags['reset-cuts']) {
         const raw = await readJson<any>(overridesFile);
         if (raw && raw.version === 2) {
@@ -235,7 +239,8 @@ async function analyze(a: Args) {
                 rewrite = true;
             }
         } else if (raw) {
-            remembered = migrateOverrides(raw, tb);
+            remembered = migrateOverrides({ add: raw.add ?? [], remove: [] }, tb);
+            migratedRemoveSec = (raw.remove ?? []).filter((x: unknown) => Number.isFinite(x));
             rewrite = true;
         }
     }
@@ -250,17 +255,24 @@ async function analyze(a: Args) {
         if (s.mad === null) log(`[breakdown] --add-cut ${t}: no change within 2 frames, cut kept at frame ${frame}.`);
         else if (frame !== center) log(`[breakdown] --add-cut ${t}: moved ${frame - center > 0 ? '+' : ''}${frame - center} frame(s) to frame ${frame}, where the picture changes.`);
     }
-    const overrides = recordFrameOverrides(remembered, [...snapped.map((s) => s.frame), ...addFrames], removeSec.map((t) => secToFrame(t, tb.rate)));
-    if (addSec.length || addFrames.length || removeSec.length || rewrite) await writeJson(overridesFile, overrides);
-
     log('[breakdown] detecting cuts');
-    // Both detectors report seconds from the first frame (ffmpeg's filters start the clock at 0).
-    const sceneRel = await detectCuts(video, threshold);
+    // Scene times are on the file's clock (ffmpeg filters); frame-difference times count from the first frame.
+    const sceneRel = (await detectCuts(video, threshold)).map((t) => t - tb.clock_offset);
     log('[breakdown] measuring motion');
     const frames = await grayFrames(video);
     const pairs = pairStats(frames);
     const fromDiff = a.flags['no-diff-cuts'] ? [] : diffCuts(pairs, sceneRel);
     const detectedFrames = [...new Set([...sceneRel.map((t) => secToFrame(t, tb.rate)), ...fromDiff.map((t) => secToFrame(t, tb.rate))])].sort((x, y) => x - y);
+    // A removal given in seconds takes the detected cut within 0.1 s of it (the reach removals had in seconds).
+    const reach = Math.max(1, Math.round(0.1 * tb.fps));
+    const resolveRemove = (sec: number) => {
+        const f = secToFrame(sec, tb.rate);
+        const near = detectedFrames.filter((d) => Math.abs(d - f) <= reach).sort((x, y) => Math.abs(x - f) - Math.abs(y - f));
+        return near[0] ?? f;
+    };
+    if (migratedRemoveSec.length) remembered = { ...remembered, remove: [...new Set([...remembered.remove, ...migratedRemoveSec.map(resolveRemove)])].sort((x, y) => x - y) };
+    const overrides = recordFrameOverrides(remembered, [...snapped.map((s) => s.frame), ...addFrames], removeSec.map(resolveRemove));
+    if (addSec.length || addFrames.length || removeSec.length || rewrite) await writeJson(overridesFile, overrides);
     const applied = applyFrameOverrides(detectedFrames, overrides);
     const cutFrames = mergeFrameCuts(applied.detected, applied.manual, tb.frames, minShotFrames(tb.rate));
     const toSec = (xs: number[]) => xs.map((f) => round3(frameToSec(f, tb.rate)));
@@ -275,7 +287,8 @@ async function analyze(a: Args) {
             ...s,
             motion: motionForShot(frames, pairs, s),
             text_change_candidates: candidates.filter((c) => c.t > s.start && c.t <= s.end),
-            images: await exportShotImages(video, dir, s, facts.fps, stripFps(s, facts.duration, candidates)),
+            // Images seek on the file's clock, where the first video frame is at clock_offset.
+            images: await exportShotImages(video, dir, { ...s, start: s.start + tb.clock_offset, end: s.end + tb.clock_offset }, facts.fps, stripFps(s, facts.duration, candidates)),
             review: null,
         });
     }

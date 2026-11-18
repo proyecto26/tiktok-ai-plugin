@@ -388,6 +388,8 @@ export async function sheet(video: string, from: number, to: number, fps: number
     const dur = Math.max(0.05, to - from);
     let rate = fps;
     if (dur * rate > maxTiles) rate = maxTiles / dur;
+    // Fewer than one tile period in the range: the fps filter would emit nothing.
+    if (dur * rate < 1) rate = 1 / dur;
     const n = Math.max(1, Math.min(maxTiles, Math.floor(dur * rate + 1e-6) || 1));
     const { cols, rows } = grid(n);
     const label = `drawtext=text='%{pts\\:flt\\:${sec(from)}}':x=4:y=h-th-4:fontsize=16:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=3`;
