@@ -103,7 +103,28 @@ export interface DownloadOptions {
     ops?: Operator;
 }
 
+/** Every URL in a message reduced to scheme, host and path (signed queries never reach output). */
+export function scrubUrls(message: string): string {
+    return message.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (u) => redactUrl(u));
+}
+
+const PAGE_PREFIX = /^\s*(<!doctype|<html|<head|<body|<\?xml|<script|\{\s*"(statusCode|status_code|code)")/i;
+const SNIFF_BYTES = 65536;
+
 export async function downloadCdn(url: string, dest: string, opts: DownloadOptions = {}): Promise<{ bytes: number; contentType: string }> {
+    try {
+        return await downloadInner(url, dest, opts);
+    } catch (e) {
+        // CdnError and the operator's own errors (they carry a kind or code) keep their identity; only the text is scrubbed.
+        if (e instanceof CdnError || (e instanceof Error && (typeof (e as { kind?: unknown }).kind === 'string' || typeof (e as { code?: unknown }).code === 'string'))) {
+            (e as Error).message = scrubUrls((e as Error).message);
+            throw e;
+        }
+        throw new CdnError('http', `The CDN download failed: ${scrubUrls(String((e as Error)?.message ?? e))}`);
+    }
+}
+
+async function downloadInner(url: string, dest: string, opts: DownloadOptions): Promise<{ bytes: number; contentType: string }> {
     const ops = opts.ops ?? (await loadOperator());
     const fetchImpl = opts.fetchImpl ?? fetch;
     const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -125,7 +146,7 @@ export async function downloadCdn(url: string, dest: string, opts: DownloadOptio
         } catch (e) {
             controller.abort();
             if (e instanceof CdnError) throw e;
-            throw new CdnError('http', `The CDN request to ${redactUrl(current)} failed: ${(e as Error).message}`);
+            throw new CdnError('http', `The CDN request to ${redactUrl(current)} failed: ${scrubUrls(String((e as Error)?.message ?? e))}`);
         } finally {
             wait.cancel();
         }
@@ -147,28 +168,61 @@ export async function downloadCdn(url: string, dest: string, opts: DownloadOptio
     if (res.status === 404 || res.status === 410) throw new CdnError('gone', `The CDN answered HTTP ${res.status} for ${redactUrl(current)}; the link may have expired.`);
     if (!res.ok || !res.body) throw new CdnError('http', `The CDN answered HTTP ${res.status} for ${redactUrl(current)}.`);
     const contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim();
-    if (!MEDIA_TYPE.test(contentType)) {
-        const text = (await res.text().catch(() => '')).slice(0, 65536);
-        const p = ops.patterns;
-        if (p.captcha.test(text) || p.waf.test(text) || p.verify.test(text) || p.tooMany.test(text) || /^\s*</.test(text)) {
-            return stop(ops, 'challenge', `CDN answered a page instead of media at ${redactUrl(current)}`);
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    const held: Uint8Array[] = [];
+    /** Next chunk: the ones held back by the sniff first, then the stream, each under the idle timeout. */
+    const next = async (what: string): Promise<{ done: boolean; value?: Uint8Array }> => {
+        if (held.length) return { done: false, value: held.shift() };
+        const wait = idle(idleMs, what);
+        try {
+            return await Promise.race([reader.read(), wait.p]);
+        } finally {
+            wait.cancel();
         }
+    };
+    const release = () => {
+        void reader.cancel().catch(() => {});
+        controller?.abort();
+    };
+    const isPage = (text: string) => {
+        const p = ops.patterns;
+        return p.captcha.test(text) || p.waf.test(text) || p.verify.test(text) || p.tooMany.test(text) || PAGE_PREFIX.test(text);
+    };
+    const media = MEDIA_TYPE.test(contentType);
+    // Sniff the start of the body whatever its declared type: a challenge page can be labelled as media.
+    // Non-media bodies are read up to SNIFF_BYTES only, each read under the idle timeout.
+    let sniffed = 0;
+    const sniffLimit = media ? 1 : SNIFF_BYTES;
+    try {
+        while (sniffed < sniffLimit) {
+            const step = await next(`no data after ${sniffed} bytes`);
+            if (step.done || !step.value) break;
+            held.push(step.value);
+            sniffed += step.value.length;
+        }
+    } catch (e) {
+        release();
+        throw e;
+    }
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(concat(held).subarray(0, media ? 4096 : SNIFF_BYTES));
+    if (!/^text\/vtt|^application\/(x-)?subrip/i.test(contentType) && isPage(head)) {
+        release();
+        return stop(ops, 'challenge', `CDN answered a page instead of media at ${redactUrl(current)}`);
+    }
+    if (!media) {
+        release();
         throw new CdnError('unexpected_body', `The CDN answered ${contentType || 'an unknown type'} instead of media at ${redactUrl(current)}.`);
     }
     const declared = Number(res.headers.get('content-length') ?? 0);
-    if (!opts.probeBytes && declared > maxBytes) throw new CdnError('too_large', `The file is ${declared} bytes, over the limit of ${maxBytes}.`);
-    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    if (!opts.probeBytes && declared > maxBytes) {
+        release();
+        throw new CdnError('too_large', `The file is ${declared} bytes, over the limit of ${maxBytes}.`);
+    }
     let bytes = 0;
     if (opts.probeBytes) {
         try {
             while (bytes < opts.probeBytes) {
-                const wait = idle(idleMs, `no data after ${bytes} bytes`);
-                let step: { done: boolean; value?: Uint8Array };
-                try {
-                    step = await Promise.race([reader.read(), wait.p]);
-                } finally {
-                    wait.cancel();
-                }
+                const step = await next(`no data after ${bytes} bytes`);
                 if (step.done || !step.value) break;
                 bytes += step.value.length;
             }
@@ -183,13 +237,7 @@ export async function downloadCdn(url: string, dest: string, opts: DownloadOptio
     try {
         for (;;) {
             if (declared > 0 && bytes >= declared) break;
-            const wait = idle(idleMs, `no data after ${bytes} bytes`);
-            let step: { done: boolean; value?: Uint8Array };
-            try {
-                step = await Promise.race([reader.read(), wait.p]);
-            } finally {
-                wait.cancel();
-            }
+            const step = await next(`no data after ${bytes} bytes`);
             if (step.done || !step.value) break;
             bytes += step.value.length;
             if (bytes > maxBytes) throw new CdnError('too_large', `The download passed the limit of ${maxBytes} bytes.`);
@@ -207,4 +255,14 @@ export async function downloadCdn(url: string, dest: string, opts: DownloadOptio
         throw e;
     }
     return { bytes, contentType };
+}
+
+function concat(parts: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let o = 0;
+    for (const p of parts) {
+        out.set(p, o);
+        o += p.length;
+    }
+    return out;
 }

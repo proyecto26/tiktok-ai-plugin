@@ -40,7 +40,7 @@ npx -y bun scripts/main.ts scan     --input "<project-dir>"/tt-*.json
 
 Files are merged and each post counts once, however many lists it appears in.
 
-- **`outliers`**, per creator (the handle from each post's link): `median` plays and the `items` at 3x that median
+- **`outliers`**, per creator (the handle from each post's link; posts with no handle are `unattributed`, never one creator): `median` plays and the `items` at 3x that median
   or more. A creator with fewer than 8 distinct posts in the reads is `sample_too_small`; a median of 0 is
   `zero_median`. Neither is a finding. To judge a creator, read their profile, not only the hashtag page.
 - **`scan`**: hashtags and sounds (grouped by sound id, so retitled uploads of one sound count together) with posts

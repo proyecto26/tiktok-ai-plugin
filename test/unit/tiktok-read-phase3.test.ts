@@ -232,3 +232,12 @@ describe('mediaFromCapture', () => {
         expect(() => mediaFromCapture(cap({}), '1')).toThrow(expect.objectContaining({ kind: 'not_found' }));
     });
 });
+
+describe('final review fixes: coverage needs terminal evidence', () => {
+    test('a last page without hasMore is not proof the list ended', () => {
+        const pg = page2(POST, ids(3), false, '0', '3');
+        delete (pg.body as { hasMore?: boolean }).hasMore;
+        const r = videosFromCapture(cap({ responses: [pg] }), { limit: 50 });
+        expect(r.exhausted).toBe(false);
+    });
+});

@@ -244,8 +244,9 @@ function chainExhausted(c: Capture, pages: Kept[], returned: number, total: numb
         if (rc === undefined) return false;
         if (i === 0 ? rc !== '0' : rc !== str(pages[i - 1].body.cursor)) return false;
     }
+    // Only an explicit "no more" proves the end; a page without the field proves nothing.
     const last = pages[pages.length - 1].body;
-    return !(last.hasMore === true || last.hasMore === 1);
+    return last.hasMore === false || last.hasMore === 0;
 }
 
 function itemListRead(c: Capture, pages: Kept[], limit: number): ReadResult<TtVideo[]> {

@@ -6,7 +6,7 @@ import process from 'node:process';
 
 import { analyseAudio } from './audio.ts';
 import { analysisId, answersTemplate, applyReview, buildScript, buildTasks, pacing, recreateMarkdown, summaryText, type Breakdown, type Shot } from './breakdown.ts';
-import { DEFAULT_MAX_BYTES } from './cdn.ts';
+import { DEFAULT_MAX_BYTES, scrubUrls } from './cdn.ts';
 import { fetchFromCapture, fetchFromFile } from './fetch.ts';
 import type { Meta } from './source.ts';
 import { ToolError, installHint, majorOf, toolVersion } from './ff.ts';
@@ -387,7 +387,7 @@ main().then(
     (code) => process.exit(code),
     (e) => {
         const err = e as Error & { hint?: string; kind?: string };
-        print({ ok: false, error: err.message, ...(err.kind ? { kind: err.kind } : {}), ...(err.hint ? { hint: err.hint } : {}) });
+        print({ ok: false, error: scrubUrls(String(err.message)), ...(err.kind ? { kind: err.kind } : {}), ...(err.hint ? { hint: err.hint } : {}) });
         process.exit(e instanceof UsageError ? 2 : 1);
     },
 );

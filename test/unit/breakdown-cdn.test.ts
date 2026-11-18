@@ -195,3 +195,42 @@ describe('downloadCdn', () => {
         expect(f.calls).toHaveLength(0);
     });
 });
+
+describe('final review fixes', () => {
+    test('a transport error that quotes the signed URL is redacted', async () => {
+        const f = fake([() => Promise.reject(new TypeError(`fetch failed: unable to connect to ${OK}`))]);
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error;
+        expect(e.message).not.toContain('SECRET123');
+        expect(e.message).not.toContain('?sig=');
+    });
+    test('a body-read error that quotes the signed URL is redacted', async () => {
+        const body = new ReadableStream<Uint8Array>({
+            start(c) {
+                c.error(new Error(`stream aborted for ${OK}`));
+            },
+        });
+        const f = fake([new Response(body, { status: 200, headers: { 'content-type': 'video/mp4' } })]);
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error;
+        expect(e).toBeInstanceOf(Error);
+        expect(e.message).not.toContain('SECRET123');
+    });
+    test('an HTML challenge served as octet-stream is a challenge, not media', async () => {
+        const html = '<!DOCTYPE html><html><body>Please wait... captcha</body></html>';
+        const f = fake([new Response(html, { status: 200, headers: { 'content-type': 'application/octet-stream' } })]);
+        const d = dir();
+        const e = (await downloadCdn(OK, path.join(d, 'v.mp4'), { fetchImpl: f.impl, ops: await realOps() }).catch((x) => x)) as Error & { kind?: string };
+        expect(e).toBeInstanceOf(Error);
+        expect(existsSync(path.join(d, 'v.mp4'))).toBe(false);
+        expect(await readSignal()).not.toBeNull();
+    });
+    test('a non-media body that never ends times out instead of hanging', async () => {
+        const body = new ReadableStream<Uint8Array>({
+            start(c) {
+                c.enqueue(new TextEncoder().encode('{"partial":'));
+            },
+        });
+        const f = fake([new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })]);
+        const e = (await downloadCdn(OK, path.join(dir(), 'v.mp4'), { fetchImpl: f.impl, ops: await realOps(), idleMs: 50 }).catch((x) => x)) as Error;
+        expect(e).toBeInstanceOf(Error);
+    });
+});

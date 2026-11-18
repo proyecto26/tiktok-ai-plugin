@@ -6,10 +6,11 @@ import { median } from '../../tiktok-audit/scripts/audit.ts';
 import type { ReadResult, TtVideo } from '../../tiktok/scripts/read.ts';
 
 export const OUTLIER = { minSample: 8, ratio: 3 } as const;
+const UNKNOWN = '(unknown)';
 
 export type AuthorResult =
     | { author: string; n: number; median: number; items: { id: string; url: string; plays: number; ratio: number }[] }
-    | { author: string; n: number; reason: 'sample_too_small' | 'zero_median' };
+    | { author: string; n: number; reason: 'sample_too_small' | 'zero_median' | 'unattributed' };
 
 export interface ScanResult {
     hashtags: { tag: string; posts: number; medianPlays: number }[];
@@ -36,12 +37,17 @@ function merge(lists: ReadResult<TtVideo[]>[]): TtVideo[] {
 export function outliers(lists: ReadResult<TtVideo[]>[]): { authors: AuthorResult[] } {
     const by = new Map<string, TtVideo[]>();
     for (const p of merge(lists)) {
-        const a = authorOf(p) || '(unknown)';
+        const a = authorOf(p) || UNKNOWN;
         by.set(a, [...(by.get(a) ?? []), p]);
     }
     const authors: AuthorResult[] = [];
     for (const [author, posts] of by) {
         const n = posts.length;
+        // Posts with no handle may come from many creators: never one baseline.
+        if (author === UNKNOWN) {
+            authors.push({ author, n, reason: 'unattributed' });
+            continue;
+        }
         if (n < OUTLIER.minSample) {
             authors.push({ author, n, reason: 'sample_too_small' });
             continue;

@@ -9,7 +9,7 @@
 | Minimum sample | 8 distinct posts per creator | fewer posts give a median that one video can move |
 | Median 0 | `zero_median`, no outliers | every ratio would be infinite |
 | Dedupe | by post id across every input file | the same post on a hashtag page and a profile is one post |
-| Creator | the handle in the post link | posts with no handle are grouped as `(unknown)` |
+| Creator | the handle in the post link | posts with no handle are reported as `unattributed`, never analysed as one creator |
 
 ## Coverage
 

@@ -88,3 +88,12 @@ describe('research CLI', () => {
         expect(JSON.parse(s.stdout).sample).toEqual({ n: 9, scope: 'partial' });
     });
 });
+
+describe('final review fixes: unattributed posts', () => {
+    test('posts without a handle are never analysed as one creator', () => {
+        const anon = (plays: number) => ({ ...v('x', plays), url: 'https://www.tiktok.com/@_/video/1' + String(++seq) });
+        const r = outliers([list([...Array.from({ length: 8 }, () => anon(100)), anon(1000)])]);
+        expect(r.authors.some((a) => 'median' in a)).toBe(false);
+        expect(r.authors.find((a) => a.author === '(unknown)')).toEqual({ author: '(unknown)', n: 9, reason: 'unattributed' } as never);
+    });
+});
