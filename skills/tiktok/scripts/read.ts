@@ -283,8 +283,8 @@ export function soundFromCapture(c: Capture, opts: { limit?: number }): ReadResu
     return namedListFromCapture(c, /\/api\/music\/item_list\/?$/, 'sound', opts);
 }
 
-/** Playable URLs, size and captions of one captured video. The URLs are signed: never log them. */
-export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
+/** The raw (projected) item of one post anywhere in the capture, or null. */
+export function itemFromCapture(c: Capture, id: string): Record<string, unknown> | null {
     const candidates: unknown[] = [];
     for (const p of keptFor(c, /\/api\/(post|challenge|music)\/item_list\/?$|\/api\/item\/detail\/?$/)) {
         if (Array.isArray(p.body.itemList)) candidates.push(...p.body.itemList);
@@ -294,7 +294,12 @@ export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
     if (vd.itemInfo) candidates.push(obj(vd.itemInfo).itemStruct);
     const ud = obj(obj(c.scope['webapp.user-detail']).userInfo);
     if (Array.isArray(ud.itemList)) candidates.push(...ud.itemList);
-    const hit = candidates.map(obj).find((i) => str(i.id) === id);
+    return candidates.map(obj).find((i) => str(i.id) === id) ?? null;
+}
+
+/** Playable URLs, size and captions of one captured video. The URLs are signed: never log them. */
+export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
+    const hit = itemFromCapture(c, id);
     if (!hit) throw new TtError('not_found', `Post ${id} is not in the capture. Capture a list page that shows it, then try again.`);
     const v = obj(hit.video);
     const urls: string[] = [];
