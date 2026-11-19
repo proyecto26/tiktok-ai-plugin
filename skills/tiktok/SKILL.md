@@ -69,8 +69,9 @@ page means stop: write nothing more, close the tab and tell the user.
 
 The CLI never posts by itself. It binds the owner's approval to the exact local bytes (sha256) and settings,
 records the attempt before Post is clicked, and settles the outcome. The page itself is checked by caption
-(or title and description), privacy and toggles; a video by its file name; photos by the exact bytes handed
-to the page's file input plus a visual fingerprint of each editor thumbnail, in order (the photo editor shows
+(or title and description), privacy and toggles; a video by its file name and the exact bytes handed to the
+page's file input (a state with no record of those bytes is refused: arm compose.js before adding the video and
+read the state with snapshot()); photos by those bytes plus a visual fingerprint of each editor thumbnail, in order (the photo editor shows
 no file names and re-encodes the images, so what the editor holds is bound only by that fingerprint: a
 photo dropped in by drag and drop is never recorded, and a close re-edit of an approved photo could pass).
 The cover is left at TikTok's default: before Post, look at the
@@ -115,7 +116,9 @@ Variants not yet verified live (non-private, AI label, disclosure; `prepare` lis
    attempt stays open: reload Studio content after a few minutes and reconcile again. If the page crashed or the result is unclear:
    `publish finish --attempt <id> --outcome unknown`. `finish --outcome published|rejected` needs `--by-owner`
    and is recorded as an owner override (the owner checked Studio themselves). Disclosure toggles are not
-   shown in the Studio list, so they are verified before Post (step 5), not after.
+   shown in the Studio list, so they are verified before Post (step 5), not after. When the approved post
+   has the AI label or a disclosure, reconcile still settles `published` but lists them under
+   `checkInApp`: tell the owner to open the post in the app and confirm them.
 
 One open attempt (`submitted`, `processing`, `unknown`, or an unreadable record) blocks every new `begin`
 until it is settled; a closed attempt (`published`, `rejected`) can never be reopened. A privacy that differs from the approval stays `unknown`: fix it in Studio by hand and

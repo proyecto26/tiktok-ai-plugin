@@ -338,7 +338,9 @@ async function cmdFrames(a: Args) {
     if (!(fps > 0 && fps <= 30)) throw new UsageError('--fps must be between 0 and 30.');
     await mkdir(path.join(dir, 'frames'), { recursive: true });
     const rel = `frames/frames_${from.toFixed(2)}_${to.toFixed(2)}.jpg`;
-    const s = await sheet(path.join(dir, 'source', 'video.mp4'), from, to, fps, path.join(dir, rel), 300, 48);
+    // The breakdown's own file and clock: the constant-rate copy for a variable-rate source, video times for --from/--to.
+    const tb = b.timebase;
+    const s = await sheet(path.join(dir, tb?.file ?? 'source/video.mp4'), from, to, fps, path.join(dir, rel), 300, 48, tb?.clock_offset ?? 0);
     print({ ok: true, image: path.join(dir, rel), fps: s.fps, times: s.times, timestamps_burned: s.labelled });
     return 0;
 }

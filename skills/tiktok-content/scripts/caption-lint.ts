@@ -17,6 +17,11 @@ import process from "node:process";
 // TikTok rules (tiktok-ai-plugin): the 2200 limit counts hashtags and mentions; the fold is editorial.
 export const TIKTOK_CAPTION_MAX = 2200; // TikTok's caption limit, hashtags and mentions included.
 export const LIMIT = TIKTOK_CAPTION_MAX;
+/** The limit in force: TIKTOK_CAPTION_MAX in the environment when set (the same override `publish prepare` reads). */
+export function captionLimit(): number {
+  const v = Number(process.env.TIKTOK_CAPTION_MAX);
+  return Number.isInteger(v) && v > 0 ? v : TIKTOK_CAPTION_MAX;
+}
 export const TRUNCATE = 80; // Editorial: about what one feed line shows over the video before "more".
 export const HASHTAG_WARN_ABOVE = 8; // Editorial: more tags than this reads as a tag dump. Not a TikTok limit.
 export const PHOTO_TITLE_MAX = 90; // Photo post title.
@@ -218,7 +223,7 @@ export function analyseCaption(
   input: string,
   cut: number = TRUNCATE,
   keywordsIn: string[] | null = null,
-  limit: number = LIMIT,
+  limit: number = captionLimit(),
 ): CaptionAnalysis {
   const text = pyRstrip(input);
   const stripped = pyStrip(text);

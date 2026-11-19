@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "tiktok-ai-plugin",
-      "description": "Drive your own TikTok account from the terminal with your browser session (no TikTok API app, no Apify): sign in with cookies; read profiles, videos and comments; publish videos and photo posts from TikTok Studio's own web flow as approved dry runs; run content, audit, research and monetization workflows on real account data; break down any TikTok into shots and script; batch your travel media into drafts; and remake videos in a local ComfyUI.",
+      "description": "Drive your own TikTok account from the terminal with your browser session (no TikTok API app, no Apify): sign in with cookies; read profiles, videos and comments; publish videos and photo posts from TikTok Studio's own web flow as approved dry runs; run content, audit and research workflows on real account data; and break down any TikTok into shots and script. Planned: monetization advice, travel drafts and a local ComfyUI remake.",
       "version": "0.1.0",
       "source": "./"
     }

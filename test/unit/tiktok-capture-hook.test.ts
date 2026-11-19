@@ -31,6 +31,24 @@ describe('capture.js stop conditions', () => {
         await settle();
         expect(JSON.parse(p.run())).toMatchObject({ rateLimited: true });
     });
+    test('a "too many attempts" JSON answer with HTTP 200 marks rateLimited and is not kept', async () => {
+        const p = page({ '/api/post/item_list/?a=1': [200, '{"status_code":1,"status_msg":"Too many attempts. Try again later."}'] });
+        p.run();
+        await (g.fetch as (u: string) => Promise<Response>)('/api/post/item_list/?a=1');
+        await settle();
+        const r = JSON.parse(p.run());
+        expect(r).toMatchObject({ rateLimited: true });
+        expect((g.__ttState as { responses: unknown[] }).responses).toHaveLength(0);
+        expect((g.__ttCapture as { more(): Record<string, unknown> }).more()).toMatchObject({ stopped: true });
+    });
+    test('an empty HTTP 403 on a kept API path marks challenge', async () => {
+        const p = page({ '/api/post/item_list/?a=1': [403, ''] });
+        p.run();
+        await (g.fetch as (u: string) => Promise<Response>)('/api/post/item_list/?a=1');
+        await settle();
+        expect(JSON.parse(p.run())).toMatchObject({ challenge: true });
+        expect((g.__ttCapture as { more(): Record<string, unknown> }).more()).toMatchObject({ stopped: true });
+    });
     test('more() refuses to scroll once a stop condition was seen', async () => {
         const p = page({ '/api/post/item_list/?a=1': [200, '<html>captcha</html>'] });
         p.run();

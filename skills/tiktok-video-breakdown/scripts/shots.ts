@@ -383,8 +383,9 @@ function grid(n: number, maxCols = 8): { cols: number; rows: number } {
 /**
  * Dense sheet of a time range with the source timestamp under each tile. Returns the tile times.
  * Falls back to an unlabelled sheet when this ffmpeg build cannot draw text (no fontconfig).
+ * `from`/`to` are video times; `clockOffset` is where the first video frame sits on the file's clock (ffmpeg's -ss).
  */
-export async function sheet(video: string, from: number, to: number, fps: number, dest: string, tileWidth = 240, maxTiles = 40): Promise<{ times: number[]; fps: number; labelled: boolean }> {
+export async function sheet(video: string, from: number, to: number, fps: number, dest: string, tileWidth = 240, maxTiles = 40, clockOffset = 0): Promise<{ times: number[]; fps: number; labelled: boolean }> {
     const dur = Math.max(0.05, to - from);
     let rate = fps;
     if (dur * rate > maxTiles) rate = maxTiles / dur;
@@ -394,7 +395,7 @@ export async function sheet(video: string, from: number, to: number, fps: number
     const { cols, rows } = grid(n);
     const label = `drawtext=text='%{pts\\:flt\\:${sec(from)}}':x=4:y=h-th-4:fontsize=16:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=3`;
     const build = (withLabel: boolean) => [
-        '-ss', sec(from), '-t', sec(dur), '-i', video, '-an',
+        '-ss', sec(from + clockOffset), '-t', sec(dur), '-i', video, '-an',
         '-vf', [`fps=${rate.toFixed(4)}`, `scale=${tileWidth}:-2`, ...(withLabel ? [label] : []), `tile=${cols}x${rows}`].join(','),
         '-frames:v', '1', '-q:v', '4', dest,
     ];

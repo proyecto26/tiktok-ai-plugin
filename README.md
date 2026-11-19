@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://code.claude.com/docs/en/plugins)
 [![Agent Plugins](https://img.shields.io/badge/Agent_Plugins-1.0-orange)](https://agent-plugins.org/specification)
-[![Skills](https://img.shields.io/badge/Skills-1_of_8-brightgreen)](#-the-essentials-kit-features)
+[![Skills](https://img.shields.io/badge/Skills-5_of_8-brightgreen)](#-the-essentials-kit-features)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Bun-blue)](https://bun.sh)
 
 <img src="https://github.com/proyecto26/sherlock-ai-plugin/blob/main/images/claude-mascot-jumping-animated.svg" width="150">
@@ -17,10 +17,12 @@ ComfyUI, Homebrew and open-source packages running on your machine.
 Every write is a dry run until you approve the exact post. There are no like, follow or DM
 commands, by design.
 
-> **Status: phase 2.** The `tiktok` operator does login, reads and publishing. A private video and a
-> private photo carousel have been published end to end on a real account; non-private posts, the AI
-> label and the disclosure toggle still need `--experimental` until each has passed live. The other skills below are
-> planned and marked so.
+> **Status: phase 3.** Five of the eight skills are built: the `tiktok` operator (login, reads,
+> publishing), Content, Audit, Research and Video Breakdown. A private video and a private photo
+> carousel have been published end to end on a real account; non-private posts, the AI label and the
+> disclosure toggle still need `--experimental` until each has passed live. Ads, Video Remake and
+> Travel Studio are planned, not built, and marked *(planned)* below. Hashtag and sound reads have
+> fixture tests but no live run yet.
 
 ---
 
@@ -190,12 +192,30 @@ npx -y bun test unit            # offline; network is trapped in the CLI tests
 bash ../scripts/check-manifests.sh
 ```
 
+There is no live test suite: live checks are run by hand, one approved action at a time.
+
+### Project structure
+
+```
+skills/
+  tiktok/                  operator: login, reads (browser captures), publish (Studio composer)
+    scripts/browser/       in-page scripts: capture.js, compose.js, studio-rows.js
+    scripts/publish/       draft, ledger, reconcile
+  tiktok-content/          hooks, captions, beats, AI-tell checks (offline)
+  tiktok-audit/            account report from operator reads
+  tiktok-research/         outliers, sounds, hashtags from captured pages
+  tiktok-video-breakdown/  shots, cuts on the frame grid, transcript, script
+test/unit/                 offline bun tests (network trapped)
+scripts/check-manifests.sh host manifest consistency
+```
+
 ## 🚧 Known Limitations
 
 - **Publishing is partly experimental.** Private video and private photo posts have passed live;
   non-private posts, the AI label and disclosure need `--experimental`. The page is checked against the
-  approval by caption, privacy and toggles; a video by file name (a different file with the same name
-  would pass), photos by the exact bytes given to the page's file input plus a visual fingerprint of each
+  approval by caption, privacy and toggles; a video by its file name and the exact bytes given to the
+  page's file input (no record of them, e.g. a file dropped in by drag and drop, is refused), photos by
+  those bytes plus a visual fingerprint of each
   editor thumbnail (a close re-edit dropped into the editor could pass).
   The page must show no location. Studio rows carry no post id, only text and a minute, so another post with
   the same text in the same window could settle an attempt whose own Post failed: post nothing else with

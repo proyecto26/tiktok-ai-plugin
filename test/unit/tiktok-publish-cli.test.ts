@@ -46,6 +46,8 @@ const pageState = (over: Partial<PageState> = {}): PageState => ({
     discloseContent: false,
     files: 1,
     fileNames: ['clip.mp4'],
+    // compose.js records the bytes handed to the page; prepare() hands it a file containing "video-bytes".
+    uploads: [{ sha256: '79fd615a866fe7f9eb4da8d9c41ab57e3bd48056df42fd2c13e4d461a87afbe3', bytes: 11, dhash: null }],
     location: '',
     ready: true,
     ...over,
@@ -108,6 +110,19 @@ describe('publish CLI', () => {
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(true)]).json.attempt.state).toBe('processing');
         expect(run(['publish', 'reconcile', '--attempt', id, '--rows', rows(false)]).json.attempt.state).toBe('published');
     });
+    test('reconcile: an approved AI label or disclosure is listed as not verified by the readback', () => {
+        const d = run(['publish', 'prepare', '--video', put('clip.mp4', 'video-bytes'), '--caption', 'seam test', '--ai-generated', '--disclose']).json.draft;
+        const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--experimental', '--page-state', put('ps.json', pageState({ aiGenerated: true, discloseContent: true }))]).json.attempt.id;
+        const rows = put('rows-ai.json', { schema: 'tt-rows-v1', account: 'jdnichollsc', rows: [{ text: 'seam test', privacy: 'only_me', underReview: false, time: studioTime() }] });
+        const r = run(['publish', 'reconcile', '--attempt', id, '--rows', rows]).json;
+        expect(r.attempt.state).toBe('published');
+        expect(r.checkInApp).toEqual(['AI-generated label', 'content disclosure']);
+        expect(r.attempt.detail).toMatch(/not verified: AI-generated label, content disclosure/);
+        // Nothing to check by hand when neither was asked for.
+        const plain = prepare().json.draft;
+        const id2 = run(['publish', 'begin', '--draft', plain.digest, '--approve', plain.digest, '--page-state', put('ps2.json', pageState())]).json.attempt.id;
+        expect(run(['publish', 'reconcile', '--attempt', id2, '--rows', rows]).json.checkInApp).toBeUndefined();
+    });
     test('reconcile: a privacy that differs stays unknown (never re-post)', () => {
         const d = prepare().json.draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', pageState())]).json.attempt.id;
@@ -118,7 +133,7 @@ describe('publish CLI', () => {
 });
 
 describe('compareState and matchRow', () => {
-    const draft = { account: 'jdnichollsc', media: [{ path: 'x', sha256: 'h', bytes: 1, manualFilePick: false }], settings: { kind: 'video', caption: 'Hello  world ', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false } } as Draft;
+    const draft = { account: 'jdnichollsc', media: [{ path: 'x', sha256: '79fd615a866fe7f9eb4da8d9c41ab57e3bd48056df42fd2c13e4d461a87afbe3', bytes: 1, manualFilePick: false }], settings: { kind: 'video', caption: 'Hello  world ', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false } } as Draft;
     test('whitespace differences in the caption are not a mismatch; a page not ready is', () => {
         expect(compareState(draft, pageState({ caption: 'Hello world', fileNames: ['x'] }))).toEqual([]);
         expect(compareState(draft, pageState({ caption: 'Hello world', fileNames: ['x'], ready: false, files: 2 }))).toEqual(expect.arrayContaining([expect.stringContaining('ready'), expect.stringContaining('files')]));

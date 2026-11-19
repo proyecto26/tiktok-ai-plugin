@@ -64,6 +64,19 @@ describe.skipIf(!HAS_FFMPEG)('analyze on frames', () => {
         const [r, , bl] = rgb(path.join(dir, b.shots[1].images.first));
         expect(bl).toBeGreaterThan(r); // shot 2 opens on blue, not on the red before the cut
     }, 60_000);
+    test('frames shows the working file on the video clock (late video track)', () => {
+        const { dir } = analyzeFixture(fx('late.mp4'));
+        // 2.0-2.5 s on the video is after the cut (blue); on the file clock it would still be red.
+        const r = cli('frames', dir, '--from', '2.05', '--to', '2.45', '--fps', '4');
+        expect(r.code).toBe(0);
+        const [red, , blue] = rgb(r.json.image);
+        expect(blue).toBeGreaterThan(red);
+    }, 60_000);
+    test('frames reads the constant-rate working copy of a variable-rate source', () => {
+        const { dir } = analyzeFixture(fx('vfr.mp4'));
+        writeFileSync(path.join(dir, 'source', 'video.mp4'), 'not a video any more');
+        expect(cli('frames', dir, '--from', '0.2', '--to', '0.6').code).toBe(0);
+    }, 60_000);
     test('frames hidden by an edit list are not counted', () => {
         const { b } = analyzeFixture(fx('trim.mp4'));
         expect(b.timebase).toMatchObject({ cfr_copy: false, frames: decodedFrames(fx('trim.mp4')) });

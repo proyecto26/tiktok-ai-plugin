@@ -15,6 +15,8 @@
     const MAX_RESPONSES = 40;
     const MAX_SCROLLS = 10;
     const CHALLENGE = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"|captcha-verify|secsdk-captcha/;
+    // Kept in step with TOO_MANY in scripts/client.ts.
+    const TOO_MANY = /too many attempts|maximum number of attempts|too many requests/i;
     const w = window;
     // Which list the tab shows: a profile, a tag or a music page. Other paths (a post opened in-page) keep the list.
     const listKey = () => {
@@ -53,7 +55,17 @@
                     state.rateLimited = true;
                     return;
                 }
+                // A refused API call (401/403), with or without a body, is a block: stop every read.
+                if (status === 401 || status === 403) {
+                    state.challenge = true;
+                    return;
+                }
                 if (!text) return;
+                // "Too many attempts" (same words the terminal client treats as an account signal), even with HTTP 200.
+                if (TOO_MANY.test(text)) {
+                    state.rateLimited = true;
+                    return;
+                }
                 // An API answer that is a captcha or verification page stops every read (account signal).
                 if (CHALLENGE.test(text) || /^\s*</.test(text)) {
                     state.challenge = true;

@@ -5,8 +5,7 @@
   "description": "Dev-only test harness. NOT shipped with the skills; they run with `npx -y bun skills/<skill>/scripts/main.ts` and need no install.",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test unit",
-    "test:live": "bun test live.test.ts"
+    "test": "bun test unit"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

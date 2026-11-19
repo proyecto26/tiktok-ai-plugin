@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- tiktok: browser reads stop on "too many attempts" answers (even with HTTP 200) and on a refused
+  request (HTTP 401/403, empty body included); status 10222 reads as `private` on the capture path.
+- tiktok: `publish begin` refuses a video page state with no record of the bytes handed to the page,
+  as it already did for photos. `publish reconcile` lists an approved AI label or disclosure under
+  `checkInApp` (Studio does not show them).
+- tiktok-content: caption-lint honours `TIKTOK_CAPTION_MAX`, like `publish prepare`.
+- tiktok-video-breakdown: `frames` reads the breakdown's working file (the constant-rate copy) and
+  takes `--from`/`--to` on the video clock.
+- README and manifests say which skills are built and which are planned; dropped the `test:live`
+  script that pointed at a missing file.
+
 - tiktok-video-breakdown: cuts are measured and stored as frames (`breakdown.json` `timebase` and
   `cuts.frames`; seconds are derived). A variable-rate source is analysed on a constant-rate copy
   (`source/work_cfr.mp4`). `--add-cut` moves to the strongest change within 2 frames and reports it

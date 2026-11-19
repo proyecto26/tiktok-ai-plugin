@@ -45,6 +45,9 @@ describe('profile', () => {
     test('nonexistent user → not_found', () => {
         expect(() => profileFromCapture(cap({ scope: fx('profile-not-found.synthetic.json').__DEFAULT_SCOPE__ }))).toThrow(expect.objectContaining({ kind: 'not_found' }));
     });
+    test('statusCode 10222 (private account) → private, as on the terminal path', () => {
+        expect(() => profileFromCapture(cap({ scope: { 'webapp.user-detail': { statusCode: 10222, statusMsg: '' } } }))).toThrow(expect.objectContaining({ kind: 'private' }));
+    });
     test('a page without the scope → unexpected_page', () => {
         expect(() => profileFromCapture(cap({ scope: {} }))).toThrow(expect.objectContaining({ kind: 'unexpected_page' }));
     });

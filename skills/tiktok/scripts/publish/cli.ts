@@ -129,11 +129,13 @@ export async function publishCommand(sub: string | undefined, flags: Record<stri
                 out({ attempt, matched: null, note: 'No single Studio row matches this draft and its time (none yet, no readable time, or more than one). Reload Studio content later and reconcile again; do not post again.' });
                 return 0;
             }
+            // Studio's content list shows no AI label or disclosure: an approved one is left for the owner to check.
+            const unverified = [...(draft.settings.aiGenerated ? ['AI-generated label'] : []), ...(draft.settings.discloseContent ? ['content disclosure'] : [])];
             const next =
                 row.privacy !== draft.settings.privacy ? await markOutcome(id, 'unknown', { detail: `privacy_mismatch: Studio shows ${row.privacy}, approved ${draft.settings.privacy}. Fix it in Studio by hand; never re-post.` })
                 : row.underReview ? await markOutcome(id, 'processing', { detail: 'Content under review' })
-                : await markOutcome(id, 'published', { detail: 'readback: caption, privacy and review state from Studio content; disclosure toggles are not shown there' });
-            out({ attempt: next, matched: row });
+                : await markOutcome(id, 'published', { detail: `readback: caption, privacy and review state from Studio content${unverified.length ? `; not verified: ${unverified.join(', ')} (Studio does not show them)` : ''}` });
+            out({ attempt: next, matched: row, ...(next.state === 'published' && unverified.length ? { checkInApp: unverified, note: `Open the post in the TikTok app and confirm: ${unverified.join(', ')}.` } : {}) });
             return 0;
         }
         case 'status': {

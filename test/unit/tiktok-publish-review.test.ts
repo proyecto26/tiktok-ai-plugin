@@ -13,7 +13,7 @@ import { compareState, matchRow, type PageState } from '../../skills/tiktok/scri
 
 const draft = {
     account: 'jdnichollsc',
-    media: [{ path: 'C:\\x\\seam-story.mp4', sha256: 'h', bytes: 9169788, manualFilePick: false }],
+    media: [{ path: 'C:\\x\\seam-story.mp4', sha256: 'a'.repeat(64), bytes: 9169788, manualFilePick: false }],
     settings: { kind: 'video', caption: 'publish test (plugin), private', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false },
 } as Draft;
 const NOW = Date.parse('2026-11-16T13:06:31Z');
@@ -31,6 +31,7 @@ const page = (over: Partial<PageState> = {}): PageState => ({
     discloseContent: false,
     files: 1,
     fileNames: ['seam-story.mp4'],
+    uploads: [{ sha256: 'a'.repeat(64), bytes: 9169788, dhash: null }],
     location: '',
     ready: true,
     challenge: false,
@@ -101,6 +102,11 @@ describe('finding 4: the uploaded media is bound by name, not only by count', ()
     test('another file with the same count is a mismatch; unreadable names too', () => {
         has(compareState(draft, page({ fileNames: ['other.mp4'] }), NOW), 'files');
         has(compareState(draft, page({ fileNames: undefined }), NOW), 'files');
+    });
+    test('a video with no record of the bytes handed to the page is a mismatch (a same-name file would pass)', () => {
+        expect(compareState(draft, page(), NOW)).toEqual([]);
+        has(compareState(draft, page({ uploads: undefined }), NOW), 'files');
+        has(compareState(draft, page({ uploads: [{ sha256: 'b'.repeat(64), bytes: 1, dhash: null }] }), NOW), 'files');
     });
 });
 
@@ -179,7 +185,9 @@ describe('CLI findings (6 and 9)', () => {
         writeFileSync(p, typeof v === 'string' ? v : JSON.stringify(v));
         return p;
     };
-    const fresh = (over: Partial<PageState> = {}) => page({ caption: 'c', fileNames: ['seam-story.mp4'], capturedAt: new Date().toISOString(), ...over });
+    // The CLI tests hand the page a one-byte file containing "v".
+    const vUploads = [{ sha256: '4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080', bytes: 1, dhash: null }];
+    const fresh = (over: Partial<PageState> = {}) => page({ caption: 'c', fileNames: ['seam-story.mp4'], uploads: vUploads, capturedAt: new Date().toISOString(), ...over });
     test('finding 6: finish published/rejected needs --by-owner and records it', () => {
         const d = run(['publish', 'prepare', '--video', put('seam-story.mp4', 'v'), '--caption', 'c']).draft;
         const id = run(['publish', 'begin', '--draft', d.digest, '--approve', d.digest, '--page-state', put('ps.json', fresh())]).attempt.id;
@@ -251,7 +259,7 @@ describe('experimental gate (design §4: first live write of each type needs --e
     test('the verified private video needs no flag', () => {
         const p = run(['publish', 'prepare', '--video', put('seam-story.mp4', 'v'), '--caption', 'c']);
         expect(p.experimental).toEqual([]);
-        const state = put('ps.json', page({ caption: 'c', capturedAt: new Date().toISOString() }));
+        const state = put('ps.json', page({ caption: 'c', uploads: [{ sha256: '4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080', bytes: 1, dhash: null }], capturedAt: new Date().toISOString() }));
         expect(run(['publish', 'begin', '--draft', p.draft.digest, '--approve', p.draft.digest, '--page-state', state]).attempt.state).toBe('submitted');
     });
     test('public, AI label and disclosure are each unverified', () => {

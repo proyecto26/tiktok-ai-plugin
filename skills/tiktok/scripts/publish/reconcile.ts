@@ -79,8 +79,9 @@ function compareMedia(d: Pick<Draft, 'media' | 'settings'>, s: PageState): strin
     if (ups) {
         const ok = ups.length === d.media.length && ups.every((u, i) => hexOnly(u?.sha256) === d.media[i].sha256);
         if (!ok) diff.push(`files: the page was given ${ups.length} file(s) whose bytes are not the approved ones in the approved order`);
-    } else if (d.settings.kind === 'photo') {
-        diff.push('files: no record of the files handed to the page (run compose.js BEFORE adding the photos)');
+    } else {
+        // Without the bytes, only the file name ties the page to the approved file: a same-name file would pass.
+        diff.push(`files: no record of the files handed to the page (run compose.js BEFORE adding the ${d.settings.kind === 'photo' ? 'photos' : 'video'}, then read the state with snapshot())`);
     }
     if (d.settings.kind === 'photo' && ups && !diff.length) {
         const th = Array.isArray(s.thumbs) ? s.thumbs : [];

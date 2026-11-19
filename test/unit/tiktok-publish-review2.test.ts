@@ -66,7 +66,7 @@ describe('location is part of the page state (seen live: a stray click set one)'
         const s = install(editor('<button role="combobox" aria-expanded="false">Only you</button>', '<div data-e2e="poi_container"><input value="Some Place"></div>')).api.state();
         expect(s.location).toBe('Some Place');
         const d = { account: 'jdnichollsc', media: [{ path: 'clip.mp4', sha256: 'a'.repeat(64), bytes: 1, manualFilePick: false }], settings: { kind: 'video', caption: 'c', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false } } as Draft;
-        const page = { schema: 'tt-pagestate-v1', url: 'https://www.tiktok.com/tiktokstudio/upload', capturedAt: new Date().toISOString(), account: 'jdnichollsc', kind: 'video', caption: 'c', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false, files: 1, fileNames: ['clip.mp4'], location: '', ready: true } as PageState;
+        const page = { schema: 'tt-pagestate-v1', url: 'https://www.tiktok.com/tiktokstudio/upload', capturedAt: new Date().toISOString(), account: 'jdnichollsc', kind: 'video', caption: 'c', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false, files: 1, fileNames: ['clip.mp4'], uploads: [{ sha256: 'a'.repeat(64), bytes: 1, dhash: null }], location: '', ready: true } as PageState;
         expect(compareState(d, page)).toEqual([]);
         expect(compareState(d, { ...page, location: 'Some Place' }).join(' ')).toMatch(/location/);
         expect(compareState(d, { ...page, location: undefined }).join(' ')).toMatch(/location/);
@@ -121,7 +121,7 @@ describe('begin requires the baseline (codex H1)', () => {
         writeFileSync(p, JSON.stringify(v));
         return p;
     };
-    const state = () => ({ schema: 'tt-pagestate-v1', url: 'https://www.tiktok.com/tiktokstudio/upload', capturedAt: new Date().toISOString(), account: 'jdnichollsc', kind: 'video', caption: 'c', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false, files: 1, fileNames: ['clip.mp4'], location: '', ready: true });
+    const state = () => ({ schema: 'tt-pagestate-v1', url: 'https://www.tiktok.com/tiktokstudio/upload', capturedAt: new Date().toISOString(), account: 'jdnichollsc', kind: 'video', caption: 'c', privacy: 'only_me', allowComments: true, allowReuse: true, aiGenerated: false, discloseContent: false, files: 1, fileNames: ['clip.mp4'], uploads: [{ sha256: '4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080', bytes: 1, dhash: null }], location: '', ready: true });
     test('no baseline, or a clashing one, is refused before any attempt; a clean one records the attempt', () => {
         writeFileSync(path.join(dir, 'clip.mp4'), 'v');
         const dg = run(['publish', 'prepare', '--video', path.join(dir, 'clip.mp4'), '--caption', 'c']).draft.digest as string;

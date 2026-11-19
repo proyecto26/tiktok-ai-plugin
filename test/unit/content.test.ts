@@ -19,6 +19,19 @@ describe('caption-lint, TikTok rules', () => {
         expect(PHOTO_TITLE_MAX).toBe(90);
         expect(PHOTO_DESCRIPTION_MAX).toBe(4000);
     });
+    test('TIKTOK_CAPTION_MAX changes the lint limit, as it does for publish prepare', () => {
+        const saved = process.env.TIKTOK_CAPTION_MAX;
+        try {
+            process.env.TIKTOK_CAPTION_MAX = '100';
+            expect(check(analyseCaption('x'.repeat(101)), 'LENGTH')).toBe('FAIL');
+            expect(check(analyseCaption('x'.repeat(100)), 'LENGTH')).toBe('PASS');
+            process.env.TIKTOK_CAPTION_MAX = 'nonsense';
+            expect(check(analyseCaption('x'.repeat(2200)), 'LENGTH')).toBe('PASS');
+        } finally {
+            if (saved === undefined) delete process.env.TIKTOK_CAPTION_MAX;
+            else process.env.TIKTOK_CAPTION_MAX = saved;
+        }
+    });
     test('a 2,150-char body plus 60 chars of hashtags fails on the total (Review Focus 5)', () => {
         const body = 'We tested 3 hooks on 12 videos. ' + 'x'.repeat(2150 - 32);
         const tags = ' ' + Array.from({ length: 6 }, (_, i) => `#tagword${i}`).join(' ').padEnd(59, 'z');

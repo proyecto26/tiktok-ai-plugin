@@ -92,6 +92,7 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 200;
 export const SCROLL_BUDGET = 10;
 const NOT_FOUND = new Set([10202, 10221]);
+const PRIVATE_CODE = 10222; // same code client.ts maps to 'private'
 const EMBEDDED_ID = '__UNIVERSAL_DATA_FOR_REHYDRATION__';
 
 type Obj = Record<string, unknown>;
@@ -119,14 +120,15 @@ export function parseCapture(text: string): Capture {
         // fall through
     }
     if (origin !== 'https://www.tiktok.com') throw new TtError('unexpected_page', `The capture is not from https://www.tiktok.com (${c.url}).`);
-    if (c.rateLimited === true) throw new TtError('rate_limited', 'TikTok answered HTTP 429 (too many requests) while capturing. Stop, wait, then run `resume`.', 429);
-    if (c.challenge === true) throw new TtError('challenge', 'TikTok showed a captcha or verification while capturing. Solve it in the browser, then run `resume`.');
+    if (c.rateLimited === true) throw new TtError('rate_limited', 'TikTok said too many requests (HTTP 429 or "too many attempts") while capturing. Stop, wait, then run `resume`.', 429);
+    if (c.challenge === true) throw new TtError('challenge', 'TikTok showed a captcha or verification, or refused a request (HTTP 401/403), while capturing. Check the browser, then run `resume`.');
     return { ...c, scope: obj(c.scope), responses: Array.isArray(c.responses) ? c.responses : [], scrolls: num(c.scrolls), dropped: num(c.dropped), stale: num(c.stale) };
 }
 
 function checkStatus(detail: Obj, what: string): void {
     const code = num(detail.statusCode);
     if (NOT_FOUND.has(code)) throw new TtError('not_found', `${what} not found on TikTok.`);
+    if (code === PRIVATE_CODE) throw new TtError('private', `${what}: the account is private.`);
     if (code !== 0) throw new TtError('unexpected_page', `${what}: TikTok answered statusCode ${code} (${str(detail.statusMsg)}).`);
 }
 
