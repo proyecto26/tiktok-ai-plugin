@@ -256,3 +256,21 @@ describe('second review fixes: every page must be well formed', () => {
         expect(r.exhausted).toBe(false);
     });
 });
+
+describe('live page shapes (redacted captures of 2026-11-19)', () => {
+    const live = (n: string) => JSON.parse(readFileSync(path.join(import.meta.dir, '../fixtures/tiktok', n), 'utf8')) as Capture;
+    test('a /tag page read live: 30 posts from cursor 30, a sample (the cursor-0 page loads before the hook)', () => {
+        const r = hashtagFromCapture(live('tag-item-list.redacted.json'), { limit: 30 });
+        expect(r).toMatchObject({ source: 'api', complete: true, exhausted: false });
+        expect(hashtagFromCapture(live('tag-item-list.redacted.json'), { limit: 100 })).toMatchObject({ complete: false, exhausted: false });
+        expect(r.data).toHaveLength(30);
+        expect(r.data[0]).toMatchObject({ durationSec: 9, plays: 1500000, likes: 196900, saves: 45200, isPhoto: false, hashtags: ['claude', 'ai', 'edit', 'coding', 'larp'] });
+        expect(r.data.every((p) => /^https:\/\/www\.tiktok\.com\/@synthetic_creator\d+\/video\/\d+$/.test(p.url))).toBe(true);
+    });
+    test('a /music page read live: every post carries that sound', () => {
+        const r = soundFromCapture(live('music-item-list.redacted.json'), { limit: 10 });
+        expect(r).toMatchObject({ source: 'api', complete: true, exhausted: false });
+        expect(r.data).toHaveLength(10);
+        expect(new Set(r.data.map((p) => p.musicId))).toEqual(new Set(['7639417177691473937']));
+    });
+});

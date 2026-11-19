@@ -44,6 +44,10 @@ signed in:
    the page then fetches `/api/comment/list/` and the hook copies it. Loading a post URL directly is the
    request that got a 403 once; avoid it.
 4. Save the returned JSON to a file and run the matching command above.
+   Seen live 2026-11-19: the browser tool cuts a returned string at about 1,000 characters and an object at
+   depth 3, so a full list does not come back in one piece. Read it out in pieces (a few posts per call, play and
+   caption URLs left out), rebuild the file locally, and say so. Tag and music pages load their first page
+   (cursor 0) before the hook is installed: the capture starts at cursor 30 and reads `exhausted: false`.
 
 Lists also carry `exhausted`: `true` only when the whole list was read — every page from cursor 0 to the last
 one, nothing dropped, nothing cut by `--limit`. Anything else is a sample: say "sample of N posts", never "the
@@ -102,10 +106,12 @@ Variants not yet verified live (non-private, AI label, disclosure; `prepare` lis
 5. `publish begin --draft <digest> --approve <digest> --page-state <file> --baseline <rows file>`. It refuses on
    an account signal, a changed file, a different digest, a stale state, a verification on the page (it writes the account signal),
    a toggle or privacy compose.js could not read (an open privacy dropdown reads as unknown), a location on the
-   post (approved posts have none; clear it), uploaded files that differ from the draft (name for a video; bytes,
-   count or thumbnail order for photos), or anything else the
+   post (approved posts have none; clear it), uploaded files that differ from the draft (name and bytes for a
+   video; bytes, count or thumbnail order for photos), or anything else the
    page shows differently (`page_mismatch` lists the fields). Only when it prints an attempt: click **Post**
-   once, in the same tab, without reloading or switching accounts.
+   once, in the same tab, without reloading or switching accounts. Seen live 2026-11-19: while TikTok's content
+   check is still running, Post opens "Continue to post?" — **Post now** completes that same click (it is not a
+   second post); **Cancel** means nothing was posted: then `publish finish --outcome unknown` and check Studio.
    Studio rows have no post id and only a minute, so reconcile can be fooled: from the baseline until the
    attempt is settled (up to 15 minutes after begin), post nothing else on this account whose text matches or
    starts like this one. If that may have happened, have the owner check Studio and close it with `--by-owner`.

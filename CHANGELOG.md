@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- tiktok: verified live on 2026-11-19: a private video published end to end with the new byte check
+  (`publish begin` accepted the recorded bytes; reconcile settled `published` after review). Hashtag
+  and sound reads ran on live `/tag/claude` and a `/music` page; their redacted shapes are now
+  fixtures. SKILL.md notes the "Continue to post?" dialog and the browser tool's output limits.
 - tiktok: browser reads stop on "too many attempts" answers (even with HTTP 200) and on a refused
   request (HTTP 401/403, empty body included); status 10222 reads as `private` on the capture path.
 - tiktok: `publish begin` refuses a video page state with no record of the bytes handed to the page,

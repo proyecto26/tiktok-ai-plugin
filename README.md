@@ -21,8 +21,8 @@ commands, by design.
 > publishing), Content, Audit, Research and Video Breakdown. A private video and a private photo
 > carousel have been published end to end on a real account; non-private posts, the AI label and the
 > disclosure toggle still need `--experimental` until each has passed live. Ads, Video Remake and
-> Travel Studio are planned, not built, and marked *(planned)* below. Hashtag and sound reads have
-> fixture tests but no live run yet.
+> Travel Studio are planned, not built, and marked *(planned)* below. Hashtag and sound reads ran
+> live on 2026-11-19 (samples: the first page loads before the hook).
 
 ---
 

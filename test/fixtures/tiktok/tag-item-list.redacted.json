@@ -1,0 +1,1512 @@
+{
+ "schema": "tt.capture.v1",
+ "url": "https://www.tiktok.com/tag/claude",
+ "capturedAt": "2026-11-19T03:42:18.454Z",
+ "scope": {},
+ "responses": [
+  {
+   "path": "/api/challenge/item_list/",
+   "route": "tag/claude",
+   "reqCursor": "30",
+   "body": {
+    "statusCode": 0,
+    "hasMore": true,
+    "cursor": "60",
+    "itemList": [
+     {
+      "id": "7000000000000000001",
+      "desc": "SYNTH: #claude #ai #edit #coding #larp",
+      "createTime": 1793591045,
+      "stats": {
+       "collectCount": 45200,
+       "commentCount": 1264,
+       "diggCount": 196900,
+       "playCount": 1500000,
+       "shareCount": 17200
+      },
+      "video": {
+       "duration": 9,
+       "width": 720,
+       "height": 960
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000001",
+       "authorName": "synthetic_creator01",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "ai"
+       },
+       {
+        "title": "edit"
+       },
+       {
+        "title": "coding"
+       },
+       {
+        "title": "larp"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "ai"
+       },
+       {
+        "hashtagName": "edit"
+       },
+       {
+        "hashtagName": "coding"
+       },
+       {
+        "hashtagName": "larp"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator01"
+      }
+     },
+     {
+      "id": "7000000000000000002",
+      "desc": "SYNTH: #EduTok #ia #ai #claude #edits",
+      "createTime": 1793995972,
+      "stats": {
+       "collectCount": 330,
+       "commentCount": 7,
+       "diggCount": 478,
+       "playCount": 7738,
+       "shareCount": 134
+      },
+      "video": {
+       "duration": 43,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000002",
+       "authorName": "synthetic_creator02",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "EduTok"
+       },
+       {
+        "title": "ia"
+       },
+       {
+        "title": "ai"
+       },
+       {
+        "title": "claude"
+       },
+       {
+        "title": "edits"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "EduTok"
+       },
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "ai"
+       },
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "edits"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator02"
+      }
+     },
+     {
+      "id": "7000000000000000003",
+      "desc": "SYNTH: #claude #claudeai #videoediting #aitools #contentcreator",
+      "createTime": 1792035147,
+      "stats": {
+       "collectCount": 3104,
+       "commentCount": 480,
+       "diggCount": 2161,
+       "playCount": 65900,
+       "shareCount": 1073
+      },
+      "video": {
+       "duration": 29,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000003",
+       "authorName": "synthetic_creator03",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "claudeai"
+       },
+       {
+        "title": "videoediting"
+       },
+       {
+        "title": "aitools"
+       },
+       {
+        "title": "contentcreator"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "claudeai"
+       },
+       {
+        "hashtagName": "videoediting"
+       },
+       {
+        "hashtagName": "aitools"
+       },
+       {
+        "hashtagName": "contentcreator"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator03"
+      }
+     },
+     {
+      "id": "7000000000000000004",
+      "desc": "SYNTH: caption",
+      "createTime": 1794247200,
+      "stats": {
+       "collectCount": 8169,
+       "commentCount": 459,
+       "diggCount": 10600,
+       "playCount": 133500,
+       "shareCount": 2440
+      },
+      "video": {
+       "duration": 70,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000004",
+       "authorName": "synthetic_creator04",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator04"
+      }
+     },
+     {
+      "id": "7000000000000000005",
+      "desc": "SYNTH: #claude #buildinpublic #webdesign #luxury #fyp",
+      "createTime": 1780343393,
+      "stats": {
+       "collectCount": 65700,
+       "commentCount": 668,
+       "diggCount": 171000,
+       "playCount": 3400000,
+       "shareCount": 23400
+      },
+      "video": {
+       "duration": 10,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000005",
+       "authorName": "synthetic_creator05",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "buildinpublic"
+       },
+       {
+        "title": "webdesign"
+       },
+       {
+        "title": "luxury"
+       },
+       {
+        "title": "fyp"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "buildinpublic"
+       },
+       {
+        "hashtagName": "webdesign"
+       },
+       {
+        "hashtagName": "luxury"
+       },
+       {
+        "hashtagName": "fyp"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator05"
+      }
+     },
+     {
+      "id": "7000000000000000006",
+      "desc": "SYNTH: #claude #inteligenciaartificial #ia #claudecode #vibecoding",
+      "createTime": 1792014516,
+      "stats": {
+       "collectCount": 40,
+       "commentCount": 4,
+       "diggCount": 305,
+       "playCount": 8691,
+       "shareCount": 57
+      },
+      "video": {
+       "duration": 52,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000006",
+       "authorName": "synthetic_creator06",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "ia"
+       },
+       {
+        "title": "claudecode"
+       },
+       {
+        "title": "vibecoding"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "claudecode"
+       },
+       {
+        "hashtagName": "vibecoding"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator06"
+      }
+     },
+     {
+      "id": "7000000000000000007",
+      "desc": "SYNTH: #higgsfieldcreator #editor #videocreator #higgsfield",
+      "createTime": 1794154205,
+      "stats": {
+       "collectCount": 12400,
+       "commentCount": 178,
+       "diggCount": 21400,
+       "playCount": 506800,
+       "shareCount": 3295
+      },
+      "video": {
+       "duration": 12,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "Paradise",
+       "id": "6705100890375718913",
+       "authorName": "Coldplay",
+       "original": false
+      },
+      "challenges": [
+       {
+        "title": "higgsfieldcreator"
+       },
+       {
+        "title": "editor"
+       },
+       {
+        "title": "videocreator"
+       },
+       {
+        "title": "higgsfield"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "higgsfieldcreator"
+       },
+       {
+        "hashtagName": "editor"
+       },
+       {
+        "hashtagName": "videocreator"
+       },
+       {
+        "hashtagName": "higgsfield"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator07"
+      }
+     },
+     {
+      "id": "7000000000000000008",
+      "desc": "SYNTH: #emprendimiento #claude #vibecoding",
+      "createTime": 1791500083,
+      "stats": {
+       "collectCount": 319,
+       "commentCount": 32,
+       "diggCount": 2623,
+       "playCount": 29900,
+       "shareCount": 189
+      },
+      "video": {
+       "duration": 30,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000008",
+       "authorName": "synthetic_creator08",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "emprendimiento"
+       },
+       {
+        "title": "claude"
+       },
+       {
+        "title": "vibecoding"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "emprendimiento"
+       },
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "vibecoding"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator08"
+      }
+     },
+     {
+      "id": "7000000000000000009",
+      "desc": "SYNTH: caption",
+      "createTime": 1794326756,
+      "stats": {
+       "collectCount": 14700,
+       "commentCount": 89,
+       "diggCount": 42300,
+       "playCount": 337700,
+       "shareCount": 3553
+      },
+      "video": {
+       "duration": 52,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000009",
+       "authorName": "synthetic_creator09",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator09"
+      }
+     },
+     {
+      "id": "7000000000000000010",
+      "desc": "SYNTH: #higgsfieldcreator",
+      "createTime": 1794244164,
+      "stats": {
+       "collectCount": 461,
+       "commentCount": 45,
+       "diggCount": 646,
+       "playCount": 13200,
+       "shareCount": 118
+      },
+      "video": {
+       "duration": 51,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000010",
+       "authorName": "synthetic_creator10",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "higgsfieldcreator"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "higgsfieldcreator"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator10"
+      }
+     },
+     {
+      "id": "7000000000000000011",
+      "desc": "SYNTH: #ia #claude #youtube #youtuber",
+      "createTime": 1793999847,
+      "stats": {
+       "collectCount": 13000,
+       "commentCount": 674,
+       "diggCount": 15100,
+       "playCount": 170400,
+       "shareCount": 2808
+      },
+      "video": {
+       "duration": 50,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000011",
+       "authorName": "synthetic_creator11",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "ia"
+       },
+       {
+        "title": "claude"
+       },
+       {
+        "title": "youtube"
+       },
+       {
+        "title": "youtuber"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "youtube"
+       },
+       {
+        "hashtagName": "youtuber"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator11"
+      }
+     },
+     {
+      "id": "7000000000000000012",
+      "desc": "SYNTH: caption",
+      "createTime": 1789568700,
+      "stats": {
+       "collectCount": 11400,
+       "commentCount": 729,
+       "diggCount": 16500,
+       "playCount": 183800,
+       "shareCount": 1284
+      },
+      "video": {
+       "duration": 147,
+       "width": 1080,
+       "height": 1920
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000012",
+       "authorName": "synthetic_creator12",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator12"
+      }
+     },
+     {
+      "id": "7000000000000000013",
+      "desc": "SYNTH: #claude #webdesign #webdeveloper #customwebsite #claudecode",
+      "createTime": 1785576053,
+      "stats": {
+       "collectCount": 6582,
+       "commentCount": 115,
+       "diggCount": 13400,
+       "playCount": 349600,
+       "shareCount": 3462
+      },
+      "video": {
+       "duration": 10,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000013",
+       "authorName": "synthetic_creator13",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "webdesign"
+       },
+       {
+        "title": "webdeveloper"
+       },
+       {
+        "title": "customwebsite"
+       },
+       {
+        "title": "claudecode"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "webdesign"
+       },
+       {
+        "hashtagName": "webdeveloper"
+       },
+       {
+        "hashtagName": "customwebsite"
+       },
+       {
+        "hashtagName": "claudecode"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator13"
+      }
+     },
+     {
+      "id": "7000000000000000014",
+      "desc": "SYNTH: #inteligenciaartificial #claudeai #chatgpt #adobe #iaparanegocios",
+      "createTime": 1794427883,
+      "stats": {
+       "collectCount": 1594,
+       "commentCount": 264,
+       "diggCount": 5064,
+       "playCount": 89200,
+       "shareCount": 1340
+      },
+      "video": {
+       "duration": 33,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000014",
+       "authorName": "synthetic_creator14",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "claudeai"
+       },
+       {
+        "title": "chatgpt"
+       },
+       {
+        "title": "adobe"
+       },
+       {
+        "title": "iaparanegocios"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "claudeai"
+       },
+       {
+        "hashtagName": "chatgpt"
+       },
+       {
+        "hashtagName": "adobe"
+       },
+       {
+        "hashtagName": "iaparanegocios"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator14"
+      }
+     },
+     {
+      "id": "7000000000000000015",
+      "desc": "SYNTH: #claude #venezuela",
+      "createTime": 1794607632,
+      "stats": {
+       "collectCount": 189,
+       "commentCount": 205,
+       "diggCount": 1194,
+       "playCount": 24000,
+       "shareCount": 323
+      },
+      "video": {
+       "duration": 140,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000015",
+       "authorName": "synthetic_creator15",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "venezuela"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "venezuela"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator15"
+      }
+     },
+     {
+      "id": "7000000000000000016",
+      "desc": "SYNTH: #ia #ai #claude #openai",
+      "createTime": 1794676371,
+      "stats": {
+       "collectCount": 72,
+       "commentCount": 13,
+       "diggCount": 458,
+       "playCount": 7346,
+       "shareCount": 10
+      },
+      "video": {
+       "duration": 56,
+       "width": 1080,
+       "height": 1920
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000016",
+       "authorName": "synthetic_creator16",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "ia"
+       },
+       {
+        "title": "ai"
+       },
+       {
+        "title": "claude"
+       },
+       {
+        "title": "openai"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "ai"
+       },
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "openai"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator16"
+      }
+     },
+     {
+      "id": "7000000000000000017",
+      "desc": "SYNTH: #claude #webdesign #threejs #3dwebsite #vibecoding",
+      "createTime": 1793997379,
+      "stats": {
+       "collectCount": 10500,
+       "commentCount": 219,
+       "diggCount": 38000,
+       "playCount": 482000,
+       "shareCount": 3086
+      },
+      "video": {
+       "duration": 19,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "AKAI - Slowed",
+       "id": "7513996527451785217",
+       "authorName": "UdieNnx & HXVSAGE & Mc Luizinho",
+       "original": false
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "webdesign"
+       },
+       {
+        "title": "threejs"
+       },
+       {
+        "title": "3dwebsite"
+       },
+       {
+        "title": "vibecoding"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "webdesign"
+       },
+       {
+        "hashtagName": "threejs"
+       },
+       {
+        "hashtagName": "3dwebsite"
+       },
+       {
+        "hashtagName": "vibecoding"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator05"
+      }
+     },
+     {
+      "id": "7000000000000000018",
+      "desc": "SYNTH: #claude #claudecode #editor #motiongraphics",
+      "createTime": 1793406165,
+      "stats": {
+       "collectCount": 398,
+       "commentCount": 334,
+       "diggCount": 516,
+       "playCount": 13500,
+       "shareCount": 85
+      },
+      "video": {
+       "duration": 72,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000018",
+       "authorName": "synthetic_creator17",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "claudecode"
+       },
+       {
+        "title": "editor"
+       },
+       {
+        "title": "motiongraphics"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "claudecode"
+       },
+       {
+        "hashtagName": "editor"
+       },
+       {
+        "hashtagName": "motiongraphics"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator17"
+      }
+     },
+     {
+      "id": "7000000000000000019",
+      "desc": "SYNTH: caption",
+      "createTime": 1794686400,
+      "stats": {
+       "collectCount": 771,
+       "commentCount": 7,
+       "diggCount": 740,
+       "playCount": 11000,
+       "shareCount": 125
+      },
+      "video": {
+       "duration": 67,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000019",
+       "authorName": "synthetic_creator18",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator18"
+      }
+     },
+     {
+      "id": "7000000000000000020",
+      "desc": "SYNTH: #inteligenciaartificial #claudecode #marketingdigital",
+      "createTime": 1783553870,
+      "stats": {
+       "collectCount": 17800,
+       "commentCount": 1325,
+       "diggCount": 23800,
+       "playCount": 292600,
+       "shareCount": 2434
+      },
+      "video": {
+       "duration": 153,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000020",
+       "authorName": "synthetic_creator19",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "claudecode"
+       },
+       {
+        "title": "marketingdigital"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "claudecode"
+       },
+       {
+        "hashtagName": "marketingdigital"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator19"
+      }
+     },
+     {
+      "id": "7000000000000000021",
+      "desc": "SYNTH: #claude #claudeai #instagram #inteligenciaartificial #creadordecontenido",
+      "createTime": 1792150652,
+      "stats": {
+       "collectCount": 219,
+       "commentCount": 183,
+       "diggCount": 283,
+       "playCount": 6080,
+       "shareCount": 53
+      },
+      "video": {
+       "duration": 68,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000021",
+       "authorName": "synthetic_creator20",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "claudeai"
+       },
+       {
+        "title": "instagram"
+       },
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "creadordecontenido"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "claudeai"
+       },
+       {
+        "hashtagName": "instagram"
+       },
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "creadordecontenido"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator20"
+      }
+     },
+     {
+      "id": "7000000000000000022",
+      "desc": "SYNTH: caption",
+      "createTime": 1793393579,
+      "stats": {
+       "collectCount": 11300,
+       "commentCount": 3009,
+       "diggCount": 26800,
+       "playCount": 285100,
+       "shareCount": 2215
+      },
+      "video": {
+       "duration": 70,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000022",
+       "authorName": "synthetic_creator21",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator21"
+      }
+     },
+     {
+      "id": "7000000000000000023",
+      "desc": "SYNTH: #softwareengineer #developer #meme #claude",
+      "createTime": 1794870113,
+      "stats": {
+       "collectCount": 730,
+       "commentCount": 70,
+       "diggCount": 5507,
+       "playCount": 83200,
+       "shareCount": 2032
+      },
+      "video": {
+       "duration": 10,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "Saxophones getting louder - Sped Up",
+       "id": "7639417177691473937",
+       "authorName": "AntonioVivald",
+       "original": false
+      },
+      "challenges": [
+       {
+        "title": "softwareengineer"
+       },
+       {
+        "title": "developer"
+       },
+       {
+        "title": "meme"
+       },
+       {
+        "title": "claude"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "softwareengineer"
+       },
+       {
+        "hashtagName": "developer"
+       },
+       {
+        "hashtagName": "meme"
+       },
+       {
+        "hashtagName": "claude"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator22"
+      }
+     },
+     {
+      "id": "7000000000000000024",
+      "desc": "SYNTH: #aitools #onlinebusiness #sidehustle #entrepreneur #contentcreator",
+      "createTime": 1789746835,
+      "stats": {
+       "collectCount": 70200,
+       "commentCount": 1102,
+       "diggCount": 86200,
+       "playCount": 1900000,
+       "shareCount": 9382
+      },
+      "video": {
+       "duration": 21,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000024",
+       "authorName": "synthetic_creator23",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "aitools"
+       },
+       {
+        "title": "onlinebusiness"
+       },
+       {
+        "title": "sidehustle"
+       },
+       {
+        "title": "entrepreneur"
+       },
+       {
+        "title": "contentcreator"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "aitools"
+       },
+       {
+        "hashtagName": "onlinebusiness"
+       },
+       {
+        "hashtagName": "sidehustle"
+       },
+       {
+        "hashtagName": "entrepreneur"
+       },
+       {
+        "hashtagName": "contentcreator"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator23"
+      }
+     },
+     {
+      "id": "7000000000000000025",
+      "desc": "SYNTH: caption",
+      "createTime": 1794434440,
+      "stats": {
+       "collectCount": 132,
+       "commentCount": 5,
+       "diggCount": 188,
+       "playCount": 2779,
+       "shareCount": 36
+      },
+      "video": {
+       "duration": 70,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000025",
+       "authorName": "synthetic_creator24",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator24"
+      }
+     },
+     {
+      "id": "7000000000000000026",
+      "desc": "SYNTH: caption",
+      "createTime": 1791900911,
+      "stats": {
+       "collectCount": 10800,
+       "commentCount": 1636,
+       "diggCount": 17100,
+       "playCount": 214800,
+       "shareCount": 1427
+      },
+      "video": {
+       "duration": 71,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000026",
+       "authorName": "synthetic_creator21",
+       "original": true
+      },
+      "challenges": [],
+      "textExtra": [],
+      "author": {
+       "uniqueId": "synthetic_creator21"
+      }
+     },
+     {
+      "id": "7000000000000000027",
+      "desc": "SYNTH: #inteligenciaartificial #claudecode #ediciondevideo #motiongraphics #creadoresdecontenido",
+      "createTime": 1793840829,
+      "stats": {
+       "collectCount": 6582,
+       "commentCount": 71,
+       "diggCount": 6470,
+       "playCount": 86200,
+       "shareCount": 1099
+      },
+      "video": {
+       "duration": 104,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "sonido original - construyendoia",
+       "id": "7704487701495417618",
+       "authorName": "construyendoia",
+       "original": false
+      },
+      "challenges": [
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "claudecode"
+       },
+       {
+        "title": "ediciondevideo"
+       },
+       {
+        "title": "motiongraphics"
+       },
+       {
+        "title": "creadoresdecontenido"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "claudecode"
+       },
+       {
+        "hashtagName": "ediciondevideo"
+       },
+       {
+        "hashtagName": "motiongraphics"
+       },
+       {
+        "hashtagName": "creadoresdecontenido"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator25"
+      }
+     },
+     {
+      "id": "7000000000000000028",
+      "desc": "SYNTH: #capcut #claudeai #automatizacionvideos #ia #data",
+      "createTime": 1780634122,
+      "stats": {
+       "collectCount": 86000,
+       "commentCount": 905,
+       "diggCount": 127300,
+       "playCount": 1500000,
+       "shareCount": 28400
+      },
+      "video": {
+       "duration": 115,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000028",
+       "authorName": "synthetic_creator26",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "capcut"
+       },
+       {
+        "title": "claudeai"
+       },
+       {
+        "title": "automatizacionvideos"
+       },
+       {
+        "title": "ia"
+       },
+       {
+        "title": "data"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "capcut"
+       },
+       {
+        "hashtagName": "claudeai"
+       },
+       {
+        "hashtagName": "automatizacionvideos"
+       },
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "data"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator26"
+      }
+     },
+     {
+      "id": "7000000000000000029",
+      "desc": "SYNTH: #claude #ia #inteligenciaartificial #redessociales #automatizacion #communitymanager",
+      "createTime": 1791635408,
+      "stats": {
+       "collectCount": 2277,
+       "commentCount": 32,
+       "diggCount": 2080,
+       "playCount": 40200,
+       "shareCount": 845
+      },
+      "video": {
+       "duration": 23,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000029",
+       "authorName": "synthetic_creator27",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "ia"
+       },
+       {
+        "title": "inteligenciaartificial"
+       },
+       {
+        "title": "redessociales"
+       },
+       {
+        "title": "automatizacion"
+       },
+       {
+        "title": "communitymanager"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "inteligenciaartificial"
+       },
+       {
+        "hashtagName": "redessociales"
+       },
+       {
+        "hashtagName": "automatizacion"
+       },
+       {
+        "hashtagName": "communitymanager"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator27"
+      }
+     },
+     {
+      "id": "7000000000000000030",
+      "desc": "SYNTH: #claude #chtgpt #ia #ai #inteligenciaartificial",
+      "createTime": 1790356313,
+      "stats": {
+       "collectCount": 12400,
+       "commentCount": 693,
+       "diggCount": 101100,
+       "playCount": 723800,
+       "shareCount": 23000
+      },
+      "video": {
+       "duration": 20,
+       "width": 576,
+       "height": 1024
+      },
+      "music": {
+       "title": "original sound",
+       "id": "7100000000000000030",
+       "authorName": "synthetic_creator28",
+       "original": true
+      },
+      "challenges": [
+       {
+        "title": "claude"
+       },
+       {
+        "title": "chtgpt"
+       },
+       {
+        "title": "ia"
+       },
+       {
+        "title": "ai"
+       },
+       {
+        "title": "inteligenciaartificial"
+       }
+      ],
+      "textExtra": [
+       {
+        "hashtagName": "claude"
+       },
+       {
+        "hashtagName": "chtgpt"
+       },
+       {
+        "hashtagName": "ia"
+       },
+       {
+        "hashtagName": "ai"
+       },
+       {
+        "hashtagName": "inteligenciaartificial"
+       }
+      ],
+      "author": {
+       "uniqueId": "synthetic_creator28"
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "scrolls": 1,
+ "dropped": 0,
+ "stale": 0,
+ "rateLimited": false,
+ "challenge": false,
+ "_note": "Live /tag/claude 2026-11-19, /api/challenge/item_list cursor 30 (the cursor-0 page loads before the hook can be installed). Handles, ids, captions and original-sound names redacted; numbers and shape as served."
+}
