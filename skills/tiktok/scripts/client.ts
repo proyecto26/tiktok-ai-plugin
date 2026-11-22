@@ -29,6 +29,21 @@ export const CAPTCHA_HTML = /captcha-verify-container|secsdk-captcha|captcha_con
 export const WAF_HTML = /_wafchallengeid|SlardarWAF|waf-aiso/;
 export const VERIFY_JSON = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"/;
 export const TOO_MANY = /too many attempts|maximum number of attempts|too many requests/i;
+
+/** "Too many attempts": a JSON body by its own error message (non-zero status), any other body by its text. */
+export function isTooMany(body: string): boolean {
+    let j: unknown;
+    try {
+        j = JSON.parse(body);
+    } catch {
+        return TOO_MANY.test(body);
+    }
+    if (!j || typeof j !== 'object') return false;
+    const o = j as Record<string, unknown>;
+    const code = o.statusCode ?? o.status_code;
+    if (code === 0 || code === '0') return false;
+    return [o.statusMsg, o.status_msg, o.message, o.msg].some((m) => typeof m === 'string' && TOO_MANY.test(m));
+}
 export const LOGIN_PATH = /^\/login(\/|\?|$)/;
 export const VERIFY_PATH = /\/(verify|captcha)(\/|\?|$)/i;
 export const NOT_FOUND_STATUS = /"status_?[cC]ode"\s*:\s*(10202|10221)\b/;
@@ -52,7 +67,7 @@ export function classifyResponse(status: number, url: string, body: string, loca
         return null;
     }
     if (LOGIN_PATH.test(pathOf(url, url))) return 'auth';
-    if (WAF_HTML.test(body) || CAPTCHA_HTML.test(body) || VERIFY_JSON.test(body) || TOO_MANY.test(body)) return 'challenge';
+    if (WAF_HTML.test(body) || CAPTCHA_HTML.test(body) || VERIFY_JSON.test(body) || isTooMany(body)) return 'challenge';
     if (NOT_FOUND_STATUS.test(body)) return 'not_found';
     if (PRIVATE_STATUS.test(body)) return 'private';
     if (status === 404) return 'not_found';

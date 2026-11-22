@@ -271,6 +271,6 @@ describe('live page shapes (redacted captures of 2026-11-19)', () => {
         const r = soundFromCapture(live('music-item-list.redacted.json'), { limit: 10 });
         expect(r).toMatchObject({ source: 'api', complete: true, exhausted: false });
         expect(r.data).toHaveLength(10);
-        expect(new Set(r.data.map((p) => p.musicId))).toEqual(new Set(['7639417177691473937']));
+        expect(new Set(r.data.map((p) => p.musicId))).toEqual(new Set(['7200000000000000001']));
     });
 });

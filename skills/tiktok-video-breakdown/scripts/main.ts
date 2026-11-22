@@ -287,8 +287,8 @@ async function analyze(a: Args) {
             ...s,
             motion: motionForShot(frames, pairs, s),
             text_change_candidates: candidates.filter((c) => c.t > s.start && c.t <= s.end),
-            // Images seek on the file's clock, where the first video frame is at clock_offset.
-            images: await exportShotImages(video, dir, { ...s, start: s.start + tb.clock_offset, end: s.end + tb.clock_offset }, facts.fps, stripFps(s, facts.duration, candidates)),
+            // Shot times stay on the video clock; the images seek on the file's clock (clock_offset added inside).
+            images: await exportShotImages(video, dir, s, facts.fps, stripFps(s, facts.duration, candidates), tb.clock_offset),
             review: null,
         });
     }

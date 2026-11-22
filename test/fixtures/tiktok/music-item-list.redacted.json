@@ -1,12 +1,12 @@
 {
  "schema": "tt.capture.v1",
- "url": "https://www.tiktok.com/music/sax-7639417177691473937",
+ "url": "https://www.tiktok.com/music/sax-7200000000000000001",
  "capturedAt": "2026-11-19T03:47:30.000Z",
  "scope": {},
  "responses": [
   {
    "path": "/api/music/item_list/",
-   "route": "music/sax-7639417177691473937",
+   "route": "music/sax-7200000000000000001",
    "reqCursor": "30",
    "body": {
     "statusCode": 0,
@@ -30,9 +30,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -90,9 +90,9 @@
        "height": 1024
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -132,9 +132,9 @@
        "height": 768
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [],
@@ -160,9 +160,9 @@
        "height": 1024
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -220,9 +220,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -274,9 +274,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -334,9 +334,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -388,9 +388,9 @@
        "height": 1272
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -430,9 +430,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [],
@@ -458,9 +458,9 @@
        "height": 1280
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -498,5 +498,5 @@
  "stale": 0,
  "rateLimited": false,
  "challenge": false,
- "_note": "Live /music/<slug>-7639417177691473937 2026-11-19, /api/music/item_list cursor 30, first 10 of 30 items. Handles, ids and captions redacted; numbers and shape as served."
+ "_note": "Live /music/<slug>-7200000000000000001 2026-11-19, /api/music/item_list cursor 30, first 10 of 30 items. Handles, ids and captions redacted; numbers and shape as served."
 }

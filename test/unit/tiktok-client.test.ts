@@ -40,6 +40,8 @@ describe('classifyResponse', () => {
         expect(classifyResponse(200, 'https://www.tiktok.com/api/x', fx('verify.synthetic.json'))).toBe('challenge'));
     test('"too many attempts" is a challenge', () =>
         expect(classifyResponse(200, 'https://www.tiktok.com/api/x', fx('too-many-attempts.synthetic.json'))).toBe('challenge'));
+    test('a usable JSON answer that only quotes "too many attempts" in content is not a stop', () =>
+        expect(classifyResponse(200, 'https://www.tiktok.com/api/x', JSON.stringify({ statusCode: 0, itemList: [{ desc: 'SYNTH: too many attempts' }] }))).toBeNull());
     test('a redirect to /login is auth', () =>
         expect(classifyResponse(302, 'https://www.tiktok.com/@x', '', '/login?redirect_url=x')).toBe('auth'));
     test('"user not exist" status is not_found', () =>

@@ -60,6 +60,16 @@ describe('compose.js', () => {
         expect(r.state).toMatchObject({ caption: 'seam test', privacy: 'only_me', allowComments: false, allowReuse: true, aiGenerated: true, discloseContent: false });
         expect(clicked.filter((t) => /^(Post|Save draft|Discard)$/.test(t))).toEqual([]);
     });
+    test('a file dropped onto the page is recorded too, so a dropped replacement breaks the byte check', async () => {
+        const { w } = runIn(COMPOSE, UPLOAD, VIDEO_EDITOR);
+        const file = { name: 'clip.mp4', size: 3, type: 'video/mp4', arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
+        const drop = new w.Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } });
+        w.document.body.dispatchEvent(drop);
+        const recs = await Promise.all((w as unknown as { __ttUploadRecords: Promise<{ name: string; bytes: number; sha256: string }>[] }).__ttUploadRecords);
+        expect(recs).toHaveLength(1);
+        expect(recs[0]).toMatchObject({ name: 'clip.mp4', bytes: 3, sha256: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81' });
+    });
     test('live Studio shape: account from the creator context, files from the upload status', () => {
         const live = VIDEO_EDITOR.replace('<a href="https://www.tiktok.com/@JDNichollsc">me</a>', '').replace('<video></video>', '<div data-e2e="upload_status_container"><span>seam-story.mp4</span><span>1080P</span><span>Uploaded（8.74MB）</span><span>Replace</span></div>');
         const w = new Window({ url: UPLOAD });

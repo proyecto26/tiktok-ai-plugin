@@ -41,6 +41,22 @@ describe('capture.js stop conditions', () => {
         expect((g.__ttState as { responses: unknown[] }).responses).toHaveLength(0);
         expect((g.__ttCapture as { more(): Record<string, unknown> }).more()).toMatchObject({ stopped: true });
     });
+    test('a normal list answer whose caption says "too many attempts" is kept (no false stop)', async () => {
+        const body = JSON.stringify({ statusCode: 0, hasMore: false, cursor: '0', itemList: [{ id: '1', desc: 'SYNTH: too many attempts at this dance' }] });
+        const p = page({ '/api/post/item_list/?a=1': [200, body] });
+        p.run();
+        await (g.fetch as (u: string) => Promise<Response>)('/api/post/item_list/?a=1');
+        await settle();
+        expect(JSON.parse(p.run())).toMatchObject({ rateLimited: false, challenge: false });
+        expect((g.__ttState as { responses: unknown[] }).responses).toHaveLength(1);
+    });
+    test('a JSON error whose message is escaped still marks rateLimited', async () => {
+        const p = page({ '/api/post/item_list/?a=1': [200, '{"statusCode":10000,"statusMsg":"Too' + String.fromCharCode(92) + 'u0020many attempts"}'] });
+        p.run();
+        await (g.fetch as (u: string) => Promise<Response>)('/api/post/item_list/?a=1');
+        await settle();
+        expect(JSON.parse(p.run())).toMatchObject({ rateLimited: true });
+    });
     test('an empty HTTP 403 on a kept API path marks challenge', async () => {
         const p = page({ '/api/post/item_list/?a=1': [403, ''] });
         p.run();

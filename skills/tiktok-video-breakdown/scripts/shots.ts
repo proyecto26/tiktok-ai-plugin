@@ -424,7 +424,7 @@ export interface ShotImages {
     timestamps_burned: boolean;
 }
 
-export async function exportShotImages(video: string, outDir: string, shot: ShotSpan, fps: number, stripRate = STRIP_FPS): Promise<ShotImages> {
+export async function exportShotImages(video: string, outDir: string, shot: ShotSpan, fps: number, stripRate = STRIP_FPS, clockOffset = 0): Promise<ShotImages> {
     const dir = path.join(outDir, 'shots');
     await mkdir(dir, { recursive: true });
     const frame = 1 / (fps || 30);
@@ -433,16 +433,17 @@ export async function exportShotImages(video: string, outDir: string, shot: Shot
     const lastT = Math.max(firstT, shot.end - frame * 1.5);
     const midT = (shot.start + shot.end) / 2;
     const rel = (n: string) => `shots/shot_${id}_${n}.jpg`;
-    await grab(video, firstT, path.join(outDir, rel('first')));
-    await grab(video, midT, path.join(outDir, rel('mid')));
-    await grab(video, lastT, path.join(outDir, rel('last')));
+    // Times are video times; the file is seeked on its own clock, where the first video frame sits at clockOffset.
+    await grab(video, firstT + clockOffset, path.join(outDir, rel('first')));
+    await grab(video, midT + clockOffset, path.join(outDir, rel('mid')));
+    await grab(video, lastT + clockOffset, path.join(outDir, rel('last')));
     const sheetRel = `shots/shot_${id}.jpg`;
     await ffmpeg([
         '-i', path.join(outDir, rel('first')), '-i', path.join(outDir, rel('mid')), '-i', path.join(outDir, rel('last')),
         '-filter_complex', '[0]scale=360:-2[a];[1]scale=360:-2[b];[2]scale=360:-2[c];[a][b][c]hstack=inputs=3',
         '-frames:v', '1', '-q:v', '4', path.join(outDir, sheetRel),
     ]);
-    const s = await sheet(video, shot.start, shot.end, stripRate, path.join(outDir, rel("strip")));
+    const s = await sheet(video, shot.start, shot.end, stripRate, path.join(outDir, rel('strip')), 240, 40, clockOffset);
     return {
         first: rel('first'), last: rel('last'), mid: rel('mid'), sheet: sheetRel, strip: rel('strip'),
         first_t: round3(firstT), mid_t: round3(midT), last_t: round3(lastT),

@@ -286,6 +286,16 @@
             },
             true,
         );
+        // A file dropped onto the page (drag and drop) never reaches a file input's change event: record it too, so a
+        // dropped replacement adds a record and the byte check refuses instead of passing on the earlier file.
+        document.addEventListener(
+            'drop',
+            (e) => {
+                const fs = e.dataTransfer && e.dataTransfer.files;
+                if (fs && fs.length) for (const f of Array.from(fs)) window.__ttUploadRecords.push(record(f));
+            },
+            true,
+        );
     }
     const uploads = () => Promise.all(window.__ttUploadRecords);
     const thumbImgs = () => all('img[class*="photoItemImage"]');

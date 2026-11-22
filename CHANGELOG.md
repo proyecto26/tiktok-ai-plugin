@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- tiktok: "too many attempts" is read from a JSON answer's own error message (non-zero status), no longer
+  from post captions or comments, so a caption with those words no longer stops a read (capture.js and the
+  terminal client). compose.js also records files dropped onto the page, so a dropped replacement video makes
+  `publish begin` refuse instead of passing on the earlier file.
+- breakdown: shot image times (`first_t`, `mid_t`, `last_t`, `strip_times`, burned labels) stay on the video
+  clock when the video track starts late; only the seek uses the file's clock.
+- test: live tag/music fixtures no longer carry real sound titles, artist names or sound ids; the fixture
+  privacy test now checks sound authors and titles.
 - tiktok: verified live on 2026-11-19: a private video published end to end with the new byte check
   (`publish begin` accepted the recorded bytes; reconcile settled `published` after review). Hashtag
   and sound reads ran on live `/tag/claude` and a `/music` page; their redacted shapes are now

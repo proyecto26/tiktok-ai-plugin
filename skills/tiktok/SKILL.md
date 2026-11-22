@@ -76,8 +76,9 @@ records the attempt before Post is clicked, and settles the outcome. The page it
 (or title and description), privacy and toggles; a video by its file name and the exact bytes handed to the
 page's file input (a state with no record of those bytes is refused: arm compose.js before adding the video and
 read the state with snapshot()); photos by those bytes plus a visual fingerprint of each editor thumbnail, in order (the photo editor shows
-no file names and re-encodes the images, so what the editor holds is bound only by that fingerprint: a
-photo dropped in by drag and drop is never recorded, and a close re-edit of an approved photo could pass).
+no file names and re-encodes the images, so what the editor holds is bound only by that fingerprint: a close
+re-edit of an approved photo could pass). A file dropped onto the page is recorded too, so a dropped extra or
+replacement file makes begin refuse.
 The cover is left at TikTok's default: before Post, look at the
 preview (right media, right order) and that no verification is on the page.
 Variants not yet verified live (non-private, AI label, disclosure; `prepare` lists them as
@@ -92,7 +93,7 @@ Variants not yet verified live (non-private, AI label, disclosure; `prepare` lis
    page reload loses it: run it again and add the files again). Then add the file(s), in the approved order,
    with the page's file input; a file marked `manualFilePick` (over 10 MB) is chosen by the owner in the page.
    Photos: if the editor already holds other photos, remove them so it shows exactly the approved ones.
-   Add photos only through the file input, never by drag and drop. Every file added after compose.js ran
+   Add files (video or photos) only through the file input, never by drag and drop. Every file added after compose.js ran
    stays recorded even if removed later, so a wrong pick means: reload, run compose.js again, start over.
 4. `await window.__ttCompose.fill(<draft.settings>)`. Read the baseline (below) in a second tab; then, back in
    the upload tab, save

@@ -64,6 +64,15 @@ describe.skipIf(!HAS_FFMPEG)('analyze on frames', () => {
         const [r, , bl] = rgb(path.join(dir, b.shots[1].images.first));
         expect(bl).toBeGreaterThan(r); // shot 2 opens on blue, not on the red before the cut
     }, 60_000);
+    test('late video track: shot image times and strip times are on the video clock, like the shot spans', () => {
+        const { b } = analyzeFixture(fx('late.mp4'));
+        const s2 = b.shots[1];
+        expect(s2.start).toBe(2);
+        // first frame of shot 2 is half a frame after its start, on the video clock (not start + 0.5 s offset)
+        expect(s2.images.first_t).toBeCloseTo(2 + 0.5 / 30, 3);
+        expect(s2.images.strip_times[0]).toBe(2);
+        expect(s2.images.mid_t).toBeCloseTo((s2.start + s2.end) / 2, 3);
+    }, 60_000);
     test('frames shows the working file on the video clock (late video track)', () => {
         const { dir } = analyzeFixture(fx('late.mp4'));
         // 2.0-2.5 s on the video is after the cut (blue); on the file clock it would still be red.

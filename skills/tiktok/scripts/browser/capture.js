@@ -17,6 +17,19 @@
     const CHALLENGE = /"type"\s*:\s*"verify"|"verify_event"|"verifyConfig"|captcha-verify|secsdk-captcha/;
     // Kept in step with TOO_MANY in scripts/client.ts.
     const TOO_MANY = /too many attempts|maximum number of attempts|too many requests/i;
+    // A JSON answer is judged by its own error message (non-zero status), never by post captions or comments.
+    const tooMany = (text) => {
+        let j;
+        try {
+            j = JSON.parse(text);
+        } catch {
+            return TOO_MANY.test(text);
+        }
+        if (!j || typeof j !== 'object') return false;
+        const code = j.statusCode ?? j.status_code;
+        if (code === 0 || code === '0') return false;
+        return [j.statusMsg, j.status_msg, j.message, j.msg].some((m) => typeof m === 'string' && TOO_MANY.test(m));
+    };
     const w = window;
     // Which list the tab shows: a profile, a tag or a music page. Other paths (a post opened in-page) keep the list.
     const listKey = () => {
@@ -62,7 +75,7 @@
                 }
                 if (!text) return;
                 // "Too many attempts" (same words the terminal client treats as an account signal), even with HTTP 200.
-                if (TOO_MANY.test(text)) {
+                if (tooMany(text)) {
                     state.rateLimited = true;
                     return;
                 }

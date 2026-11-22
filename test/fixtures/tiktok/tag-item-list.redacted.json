@@ -358,9 +358,9 @@
        "height": 1024
       },
       "music": {
-       "title": "Paradise",
-       "id": "6705100890375718913",
-       "authorName": "Coldplay",
+       "title": "SYNTH: track 02",
+       "id": "7200000000000000002",
+       "authorName": "synthetic_artist02",
        "original": false
       },
       "challenges": [
@@ -822,9 +822,9 @@
        "height": 1024
       },
       "music": {
-       "title": "AKAI - Slowed",
-       "id": "7513996527451785217",
-       "authorName": "UdieNnx & HXVSAGE & Mc Luizinho",
+       "title": "SYNTH: track 03",
+       "id": "7200000000000000003",
+       "authorName": "synthetic_artist03",
        "original": false
       },
       "challenges": [
@@ -1100,9 +1100,9 @@
        "height": 1024
       },
       "music": {
-       "title": "Saxophones getting louder - Sped Up",
-       "id": "7639417177691473937",
-       "authorName": "AntonioVivald",
+       "title": "SYNTH: track 01",
+       "id": "7200000000000000001",
+       "authorName": "synthetic_artist01",
        "original": false
       },
       "challenges": [
@@ -1270,9 +1270,9 @@
        "height": 1024
       },
       "music": {
-       "title": "sonido original - construyendoia",
-       "id": "7704487701495417618",
-       "authorName": "construyendoia",
+       "title": "SYNTH: track 04",
+       "id": "7200000000000000004",
+       "authorName": "synthetic_artist04",
        "original": false
       },
       "challenges": [

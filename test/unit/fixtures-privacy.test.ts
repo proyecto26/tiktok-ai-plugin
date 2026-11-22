@@ -29,6 +29,19 @@ function visit(v: unknown, owner: boolean, f: (key: string, value: unknown, owne
     f(key, v, owner);
 }
 
+/** Sound objects (they carry authorName): the author is a handle and the title free text, both third-party. */
+const GENERIC_SOUND = /^(original sound|sonido original|son original|som original|suono originale)$/i;
+function soundProblems(v: unknown, out: string[]): void {
+    if (Array.isArray(v)) return v.forEach((x) => soundProblems(x, out));
+    if (!v || typeof v !== 'object') return;
+    const o = v as Record<string, unknown>;
+    if (typeof o.authorName === 'string') {
+        if (o.authorName && o.authorName.toLowerCase() !== OWNER && !o.authorName.startsWith('synthetic_')) out.push(`sound author ${o.authorName}`);
+        if (typeof o.title === 'string' && o.title && !GENERIC_SOUND.test(o.title) && !o.title.startsWith('SYNTH:')) out.push(`sound title ${o.title.slice(0, 30)}`);
+    }
+    for (const x of Object.values(o)) soundProblems(x, out);
+}
+
 const files = walk(ROOT);
 
 describe('fixtures privacy', () => {
@@ -56,6 +69,7 @@ describe('fixtures privacy', () => {
                         if (HANDLE_KEYS.has(k) && v && v.toLowerCase() !== OWNER && !v.startsWith('synthetic_')) problems.push(`handle ${k}=${v}`);
                         if (TEXT_KEYS.has(k) && v && !own && !v.startsWith('SYNTH:')) problems.push(`${k} not SYNTH: ${v.slice(0, 30)}`);
                     });
+                    soundProblems(data, problems);
                 } else strings.push(raw);
             } else strings.push(raw);
             for (const s of strings) {
