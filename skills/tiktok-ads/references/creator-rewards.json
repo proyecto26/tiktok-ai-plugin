@@ -1,0 +1,9 @@
+{
+  "as_of": "2026-11-22",
+  "note": "Starting points from TikTok's public help pages; verify on the Monetization page in TikTok Studio, the program changes often.",
+  "followers_min": 10000,
+  "views_30d_min": 100000,
+  "age_min": 18,
+  "regions": ["US", "GB", "DE", "JP", "KR", "FR", "BR"],
+  "regions_note": "Possibly incomplete: TikTok adds regions over time. A region outside this list is reported unknown, never not met."
+}

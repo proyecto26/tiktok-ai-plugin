@@ -1,0 +1,17 @@
+{
+ "source": "page",
+ "data": {
+  "username": "synthetic_creator",
+  "userId": "1",
+  "secUid": "",
+  "nickname": "SYNTH: creator",
+  "bio": "SYNTH: bio",
+  "followers": 12400,
+  "following": 80,
+  "likes": 90000,
+  "videoCount": 120,
+  "verified": false,
+  "private": false
+ },
+ "complete": true
+}

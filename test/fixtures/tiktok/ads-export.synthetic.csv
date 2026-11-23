@@ -1,0 +1,8 @@
+Ad name,Campaign name,Cost,Impressions,Clicks (destination),CTR (destination),CPM,Conversions,CPA,Frequency
+synthetic_ad_scale,camp1,"$1,234.50",300000,"4,500",1.50%,$4.12,70,$17.64,1.8
+synthetic_ad_keep,camp1,$600.00,150000,900,0.60%,$4.00,25,$24.00,2.2
+synthetic_ad_kill_cpa,camp1,$900.00,200000,1000,0.50%,$4.50,10,$90.00,2.0
+synthetic_ad_kill_zero,camp1,$500.00,100000,300,0.30%,$5.00,0,-,1.5
+synthetic_ad_wait,camp1,$20.00,4000,40,1.00%,$5.00,0,-,1.1
+synthetic_ad_fatigue,camp1,$800.00,180000,"1,200",0.67%,$4.44,30,$26.67,4.6
+Total,,"$4,054.50","934,000","7,940",,,,,

@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "tiktok-ai-plugin",
   "version": "0.1.0",
-  "description": "Drive your own TikTok account from the terminal with your browser session (no TikTok API app, no Apify): sign in with cookies; read profiles, videos and comments; publish videos and photo posts from TikTok Studio's own web flow as approved dry runs; run content, audit and research workflows on real account data; and break down any TikTok into shots and script. Planned: monetization advice, travel drafts and a local ComfyUI remake.",
+  "description": "Drive your own TikTok account from the terminal with your browser session (no TikTok API app, no Apify): sign in with cookies; read profiles, videos and comments; publish videos and photo posts from TikTok Studio's own web flow as approved dry runs; run content, audit and research workflows on real account data; break down any TikTok into shots and script; and get read-only monetization and ads advice (Creator Rewards eligibility, Studio analytics, kill/keep/scale from an Ads Manager export). Planned: travel drafts and a local ComfyUI remake.",
   "author": {
     "name": "Proyecto 26",
     "url": "https://github.com/proyecto26"
