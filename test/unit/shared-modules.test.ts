@@ -34,3 +34,28 @@ describe('shared breakdown modules', () => {
         expect(lf(readFileSync(siblingList, 'utf8'))).toBe(lf(readFileSync(path.join(SCRIPTS, 'SHARED.sha256'), 'utf8')));
     });
 });
+
+// The remake modules that are the same in both plugins (pure logic, ffmpeg steps, the ComfyUI client, the graphs):
+// the platform-specific parts (schema name, canvas default, wording) live in main.ts and manifest.ts, which are not
+// shared. The list is SHARED.sha256 in the remake skill's scripts folder; the sibling's list is compared with it once
+// the sibling has one.
+describe('shared remake modules', () => {
+    const remakeDir = (plugin: string, root: string) => path.join(root, 'skills', `${plugin}-video-remake`, 'scripts');
+    const MINE = remakeDir(SELF, ROOT);
+    test('shared modules match their recorded hash', () => {
+        const list = entries(path.join(MINE, 'SHARED.sha256'));
+        expect(list.map((e) => e.name).sort()).toEqual(['audio.ts', 'cadence.ts', 'comfy.ts', 'ff.ts', 'graphs.ts', 'plan.ts', 'stretch.ts']);
+        for (const { hash, name } of list) expect(`${name} ${sha(readFileSync(path.join(MINE, name), 'utf8'))}`).toBe(`${name} ${hash}`);
+    });
+    test('they name no platform, so one copy serves both', () => {
+        for (const { name } of entries(path.join(MINE, 'SHARED.sha256'))) {
+            const text = lf(readFileSync(path.join(MINE, name), 'utf8'));
+            expect(`${name}: ${/tiktok|instagram|\big\.|\btt\./i.test(text)}`).toBe(`${name}: false`);
+        }
+    });
+    const siblingRoot = process.env.PLUGIN_SIBLING ?? path.resolve(ROOT, '..', '..', SIBLING, `${SIBLING}-ai-plugin`);
+    const siblingList = path.join(remakeDir(SIBLING, siblingRoot), 'SHARED.sha256');
+    test.skipIf(!existsSync(siblingList))('the sibling plugin has the same shared set', () => {
+        expect(lf(readFileSync(siblingList, 'utf8'))).toBe(lf(readFileSync(path.join(MINE, 'SHARED.sha256'), 'utf8')));
+    });
+});

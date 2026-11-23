@@ -390,11 +390,16 @@ export async function copyFrames(src: string, out: string, o: { first: number; f
 export const EXPORT_SIZE = { width: 1080, height: 1920 } as const;
 
 /**
- * The finished picture on the TikTok canvas, 1080x1920. A 9:16 source is scaled. Any other shape is fitted inside the
- * canvas over a blurred, scaled copy of itself (`fit`), or scaled to cover it and cropped in the centre (`cover`).
+ * The finished picture. `source` keeps the size and shape of the source. Otherwise it goes on the 1080x1920 canvas: a
+ * 9:16 source is scaled, any other shape is fitted inside the canvas over a blurred, scaled copy of itself (`fit`), or
+ * scaled to cover it and cropped in the centre (`cover`).
  * Silent: sound is added to this file afterwards without touching the picture.
  */
-export async function exportCanvas(src: string, out: string, mode: 'fit' | 'cover', source: { width: number; height: number }): Promise<void> {
+export async function exportCanvas(src: string, out: string, mode: 'source' | 'fit' | 'cover', source: { width: number; height: number }): Promise<void> {
+    if (mode === 'source') {
+        await ffmpeg(['-i', src, '-vf', 'setsar=1,format=yuv420p', '-an', ...ENC, '-movflags', '+faststart', out], 'exporting the final picture');
+        return;
+    }
     const { width: W, height: H } = EXPORT_SIZE;
     const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,crop=${W}:${H}`;
     const portrait = Math.abs(source.width / source.height - W / H) < 0.01;

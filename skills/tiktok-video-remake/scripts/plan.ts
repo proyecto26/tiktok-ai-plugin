@@ -12,7 +12,11 @@ import { createHash } from 'node:crypto';
 
 import { SWAP_DEFAULTS } from './graphs.ts';
 import type { Rect } from './graphs.ts';
+import { SCHEMA } from './manifest.ts';
 import { MIN_HALF_FRAMES, frameTime, timeFrame, type Stretch } from './stretch.ts';
+
+/** The plan's schema name follows the manifest's (`<prefix>.remake.v1` -> `<prefix>.remake.plan.v1`), so this file is the same in both plugins. */
+export const PLAN_SCHEMA = SCHEMA.replace(/\.v1$/, '.plan.v1');
 
 export interface Validation {
     ok: boolean;
@@ -209,7 +213,7 @@ export interface PlanUnit {
 }
 
 export interface Plan {
-    schema: 'tt.remake.plan.v1';
+    schema: string;
     created_at: string;
     fps: number;
     frames: number;
@@ -260,7 +264,7 @@ export function buildPlan(o: { stretches: Stretch[]; targets: Targets; frame: { 
             units.push(swap(`${s.id}_b`, T, s.end, T, seed.point, false, [seed.box, e.box_last]));
         }
     }
-    return { schema: 'tt.remake.plan.v1', created_at: o.now ?? new Date().toISOString(), fps: o.fps, frames: o.frames, card_sha256: stableHash({ card: o.card }), units };
+    return { schema: PLAN_SCHEMA, created_at: o.now ?? new Date().toISOString(), fps: o.fps, frames: o.frames, card_sha256: stableHash({ card: o.card }), units };
 }
 
 export type Part = { unit: string } | { source: [number, number] };
@@ -309,7 +313,7 @@ export function unitsOf(plan: Plan): { units: PlanUnit[]; groups: Group[]; segme
 export function validatePlan(plan: unknown, stretches: Stretch[], frame: { width: number; height: number }, totalFrames: number): Validation {
     const errors: string[] = [];
     const p = plan as Partial<Plan> | null;
-    if (!p || p.schema !== 'tt.remake.plan.v1' || !Array.isArray(p.units)) return result(['plan.json is not a tt.remake.plan.v1 file (run plan to make one).']);
+    if (!p || p.schema !== PLAN_SCHEMA || !Array.isArray(p.units)) return result([`plan.json is not a ${PLAN_SCHEMA} file (run plan to make one).`]);
     const seen = new Set<string>();
     for (const u of p.units) {
         const id = String(u?.id ?? '?');
