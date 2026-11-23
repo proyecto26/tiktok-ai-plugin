@@ -17,11 +17,11 @@ ComfyUI, Homebrew and open-source packages running on your machine.
 Every write is a dry run until you approve the exact post. There are no like, follow or DM
 commands, by design.
 
-> **Status: phase 3.** Five of the eight skills are built: the `tiktok` operator (login, reads,
-> publishing), Content, Audit, Research and Video Breakdown. A private video and a private photo
+> **Status: phase 3.** Six of the eight skills are built: the `tiktok` operator (login, reads,
+> publishing), Content, Audit, Research, Video Breakdown and Travel Studio. A private video and a private photo
 > carousel have been published end to end on a real account; non-private posts, the AI label and the
-> disclosure toggle still need `--experimental` until each has passed live. Ads, Video Remake and
-> Travel Studio are planned, not built, and marked *(planned)* below. Hashtag and sound reads ran
+> disclosure toggle still need `--experimental` until each has passed live. Ads and Video Remake
+> are planned, not built, and marked *(planned)* below. Hashtag and sound reads ran
 > live on 2026-11-19 (samples: the first page loads before the hook).
 
 ---
@@ -68,9 +68,11 @@ production plan.
 ### 🎭 **7. TikTok Video Remake (The Director)** *(planned)*
 *Replace one person in a video you may remake* with MiniMax H3 in a local ComfyUI, 1080x1920.
 
-### 🧳 **8. TikTok Travel Studio (The Producer)** *(planned)*
-*Your travel backlog into drafts.* Local `drafts.json` of clips and photo posts; it never
-publishes on its own.
+### 🧳 **8. TikTok Travel Studio (The Producer)**
+*Your travel backlog into drafts.* Scans a folder (date, GPS, rotation, frame rate), groups trips, scores and
+shortlists clips (faces only with a local detector you configure), renders 1080x1920 cuts with automatic or manual
+focus, adds your own music at -14 LUFS (never looped), builds 9:16 or 4:5 photo sets, and writes a local
+`drafts.json` with linted captions and the `publish prepare` command for each. It never publishes on its own.
 
 ## ⚠️ Read this first: account risk
 

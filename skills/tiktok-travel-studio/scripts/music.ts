@@ -42,7 +42,7 @@ async function lufsOf(file: string): Promise<number | null> {
 export async function addMusic(o: MusicOpts): Promise<MusicReport> {
     const exists = async (f: string) => !!(await stat(f).catch(() => null))?.isFile();
     if (!(await exists(o.video))) throw new ToolError('video_not_found', `No video at ${o.video}.`);
-    if (!(await exists(o.music))) throw new ToolError('music_not_found', `No music file at ${o.music}.`, 'Pass --file with an audio file you have the rights to use.');
+    if (!(await exists(o.music))) throw new ToolError('music_not_found', `No music file at ${o.music}.`, 'Pass --file with the audio file to add.');
     const vp = await ffprobeJson(o.video);
     const vDur = Number(vp.format?.duration);
     const mp = await ffprobeJson(o.music);

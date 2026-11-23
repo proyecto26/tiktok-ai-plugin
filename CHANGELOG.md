@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- tiktok-travel-studio (new): `scan`, `group`, `score`, `shortlist`, `render`, `music`, `photos`, `drafts` (schema
+  `tt.travel.v1`). Rotation metadata and variable-rate clips are handled in `render` (constant-rate copy), focus is
+  override, faces (only with a local `TT_FACE_CMD`), motion centroid, else centre; music is loudness-normalised to
+  -14 LUFS and never loops; photo sets are capped at 35 images (constant to confirm against the live composer); drafts
+  carry captions linted by `tiktok-content` and the `publish prepare` command, and nothing is published.
 - tiktok: "too many attempts" is read from a JSON answer's own error message (non-zero status), no longer
   from post captions or comments, so a caption with those words no longer stops a read (capture.js and the
   terminal client). compose.js also records files dropped onto the page, so a dropped replacement video makes
