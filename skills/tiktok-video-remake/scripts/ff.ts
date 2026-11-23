@@ -330,3 +330,118 @@ export async function decodeAudio(file: string, rate: number, o: { start?: numbe
     if (r.code !== 0 || !r.stdout.length) throw new ToolError(`Could not read audio from ${file}: ${r.stderr.trim().slice(-200) || 'no audio stream'}`);
     return new Float32Array(r.stdout.buffer, r.stdout.byteOffset, Math.floor(r.stdout.length / 4)).slice();
 }
+
+/**
+ * Writes the frames `picks` (absolute source frame numbers inside [first, first + count)) of `src` as
+ * `<dir>/f<number>.jpg`, scaled to at most `maxSide` pixels on the long side (full size when omitted).
+ */
+export async function extractFrames(src: string, dir: string, o: { first: number; count: number; fps: number; picks: number[]; maxSide?: number }): Promise<string[]> {
+    const { mkdir, rename, rm } = await import('node:fs/promises');
+    await mkdir(dir, { recursive: true });
+    const picks = [...new Set(o.picks)].sort((a, b) => a - b);
+    const rel = picks.map((p) => p - o.first);
+    if (!picks.length || rel.some((r) => r < 0 || r >= o.count)) throw new ToolError('Frames to read must lie inside the stretch.');
+    const sel = `select='${rel.map((r) => `eq(n\\,${r})`).join('+')}'`;
+    const scale = o.maxSide ? `,scale='if(gt(iw,ih),min(${o.maxSide},iw),-2)':'if(gt(iw,ih),-2,min(${o.maxSide},ih))'` : '';
+    const seek = Math.max(0, (o.first - 0.5) / o.fps);
+    await ffmpeg(['-ss', seek.toFixed(5), '-i', src, '-vf', `trim=end_frame=${o.count},setpts=PTS-STARTPTS,${sel}${scale}`, '-fps_mode', 'passthrough', '-q:v', '2', '-start_number', '1', `${dir}/_tmp%04d.jpg`], 'reading frames');
+    const files: string[] = [];
+    for (let i = 0; i < picks.length; i++) {
+        const from = `${dir}/_tmp${String(i + 1).padStart(4, '0')}.jpg`;
+        const to = `${dir}/f${picks[i]}.jpg`;
+        await rename(from, to).catch(async () => {
+            await rm(from, { force: true });
+            throw new ToolError(`Could not read frame ${picks[i]} of ${src}.`);
+        });
+        files.push(to);
+    }
+    return files;
+}
+
+/**
+ * Joins two clips of the same size and rate where the end of `a` and the start of `b` show the same source frames:
+ * the last `overlap` frames of `a` are blended into the first `overlap` of `b` (linear: frame k of the overlap takes
+ * (k+1)/(overlap+1) of `b`). The result has exactly a.frames + b.frames - overlap frames.
+ */
+export async function joinOverlap(a: { file: string; frames: number }, b: { file: string; frames: number }, overlap: number, out: string): Promise<void> {
+    if (!(overlap >= 1) || a.frames <= overlap || b.frames <= overlap) throw new ToolError(`Cannot join clips of ${a.frames} and ${b.frames} frames over ${overlap} frames.`);
+    const w = `(N+1)/${overlap + 1}`;
+    const graph = [
+        '[0:v]split=2[a1][a2]',
+        `[a1]trim=end_frame=${a.frames - overlap},setpts=PTS-STARTPTS[amain]`,
+        `[a2]trim=start_frame=${a.frames - overlap}:end_frame=${a.frames},setpts=PTS-STARTPTS[atail]`,
+        '[1:v]split=2[b1][b2]',
+        `[b1]trim=end_frame=${overlap},setpts=PTS-STARTPTS[bhead]`,
+        `[b2]trim=start_frame=${overlap}:end_frame=${b.frames},setpts=PTS-STARTPTS[brest]`,
+        `[atail][bhead]blend=all_expr='A*(1-${w})+B*${w}'[mix]`,
+        '[amain][mix][brest]concat=n=3:v=1:a=0[v]',
+    ].join(';');
+    const total = a.frames + b.frames - overlap;
+    await ffmpeg(['-i', a.file, '-i', b.file, '-filter_complex', graph, '-map', '[v]', '-frames:v', String(total), '-an', ...ENC, out], 'joining the stretches');
+    const p = await probe(out);
+    if (p.frames !== total) throw new ToolError(`The joined clip has ${p.frames} frames instead of ${total}. It was not accepted.`);
+}
+
+/** The frames [first, first + frames) of the source as a clip at the source's own size and rate (a kept stretch). */
+export async function copyFrames(src: string, out: string, o: { first: number; frames: number; frame: { width: number; height: number; fps: number } }): Promise<void> {
+    await concat([{ file: src, start: Math.max(0, (o.first - 0.5) / o.frame.fps), frames: o.frames }], out, o.frame);
+}
+
+export const EXPORT_SIZE = { width: 1080, height: 1920 } as const;
+
+/**
+ * The finished picture on the TikTok canvas, 1080x1920. A 9:16 source is scaled. Any other shape is fitted inside the
+ * canvas over a blurred, scaled copy of itself (`fit`), or scaled to cover it and cropped in the centre (`cover`).
+ * Silent: sound is added to this file afterwards without touching the picture.
+ */
+export async function exportCanvas(src: string, out: string, mode: 'fit' | 'cover', source: { width: number; height: number }): Promise<void> {
+    const { width: W, height: H } = EXPORT_SIZE;
+    const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,crop=${W}:${H}`;
+    const portrait = Math.abs(source.width / source.height - W / H) < 0.01;
+    if (portrait || mode === 'cover') {
+        await ffmpeg(['-i', src, '-vf', `${cover},setsar=1,format=yuv420p`, '-an', ...ENC, '-movflags', '+faststart', out], 'exporting the final picture');
+        return;
+    }
+    const graph = `[0:v]split=2[bg][fg];[bg]${cover},boxblur=30:3[b];[fg]scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos[f];[b][f]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[v]`;
+    await ffmpeg(['-i', src, '-filter_complex', graph, '-map', '[v]', '-an', ...ENC, '-movflags', '+faststart', out], 'exporting the final picture');
+}
+
+export interface AudioPiece {
+    /** Where it sits on the timeline, and how long, in seconds. */
+    at: number;
+    length: number;
+    /** Where it starts in the source audio. */
+    from: number;
+}
+
+/**
+ * Builds a soundtrack from pieces of the source audio, each placed where its picture is on the timeline. Where two
+ * pieces meet without being neighbours in the source, they are crossfaded over `fade` seconds around the join (the
+ * source audio on either side of the cut supplies the overlap), so a cut never clicks. Written as a WAV.
+ */
+export async function audioFromPieces(src: string, out: string, pieces: AudioPiece[], o: { total: number; sourceLength: number; fade?: number; eps: number }): Promise<void> {
+    if (!pieces.length) throw new ToolError('Nothing to build the sound from.');
+    const h = (o.fade ?? 0.03) / 2;
+    const parts: string[] = [];
+    pieces.forEach((p, i) => {
+        const prev = pieces[i - 1];
+        const next = pieces[i + 1];
+        const joinedBefore = prev && Math.abs(p.from - (prev.from + prev.length)) > o.eps && p.from >= h;
+        const joinedAfter = next && Math.abs(next.from - (p.from + p.length)) > o.eps && p.from + p.length + h <= o.sourceLength;
+        const x = joinedBefore ? h : 0;
+        const y = joinedAfter ? h : 0;
+        const chain = [`atrim=start=${(p.from - x).toFixed(5)}:end=${(p.from + p.length + y).toFixed(5)}`, 'asetpts=PTS-STARTPTS'];
+        if (x) chain.push(`afade=t=in:st=0:d=${(2 * h).toFixed(5)}`);
+        if (y) chain.push(`afade=t=out:st=${(x + p.length - h).toFixed(5)}:d=${(2 * h).toFixed(5)}`);
+        chain.push(`adelay=${Math.max(0, Math.round((p.at - x) * 1000))}:all=1`);
+        parts.push(`[0:a]${chain.join(',')}[p${i}]`);
+    });
+    const mix = pieces.length === 1 ? '[p0]anull[m]' : `${pieces.map((_, i) => `[p${i}]`).join('')}amix=inputs=${pieces.length}:normalize=0:duration=longest[m]`;
+    const graph = `${parts.join(';')};${mix};[m]apad=whole_dur=${o.total.toFixed(5)},atrim=end=${o.total.toFixed(5)}[a]`;
+    await ffmpeg(['-i', src, '-filter_complex', graph, '-map', '[a]', '-ac', '2', '-ar', '44100', '-c:a', 'pcm_s16le', out], 'building the sound from the source');
+}
+
+/** Puts `audio` (already as long as the video) under `video` without touching the picture. */
+export async function addSound(video: string, audio: string, out: string, videoDuration: number): Promise<void> {
+    await mux(video, audio, out, { audioStart: 0, videoDuration, audioDuration: await audioLength(audio) });
+}
