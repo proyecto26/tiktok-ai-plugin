@@ -294,24 +294,38 @@ export function soundFromCapture(c: Capture, opts: { limit?: number }): ReadResu
     return namedListFromCapture(c, /\/api\/music\/item_list\/?$/, 'sound', opts);
 }
 
-/** The raw (projected) item of one post anywhere in the capture, or null. */
-export function itemFromCapture(c: Capture, id: string): Record<string, unknown> | null {
-    const candidates: unknown[] = [];
+/** Every captured entry of one post, detail entries (item/detail, video-detail) first, then list entries. */
+function itemsFromCapture(c: Capture, id: string): Record<string, unknown>[] {
+    const detail: unknown[] = [];
+    const lists: unknown[] = [];
     for (const p of keptFor(c, /\/api\/(post|challenge|music)\/item_list\/?$|\/api\/item\/detail\/?$/)) {
-        if (Array.isArray(p.body.itemList)) candidates.push(...p.body.itemList);
-        if (p.body.itemInfo) candidates.push(obj(p.body.itemInfo).itemStruct);
+        if (Array.isArray(p.body.itemList)) lists.push(...p.body.itemList);
+        if (p.body.itemInfo) detail.push(obj(p.body.itemInfo).itemStruct);
     }
     const vd = obj(c.scope['webapp.video-detail']);
-    if (vd.itemInfo) candidates.push(obj(vd.itemInfo).itemStruct);
+    if (vd.itemInfo) detail.unshift(obj(vd.itemInfo).itemStruct);
     const ud = obj(obj(c.scope['webapp.user-detail']).userInfo);
-    if (Array.isArray(ud.itemList)) candidates.push(...ud.itemList);
-    return candidates.map(obj).find((i) => str(i.id) === id) ?? null;
+    if (Array.isArray(ud.itemList)) lists.push(...ud.itemList);
+    return [...detail, ...lists].map(obj).filter((i) => str(i.id) === id);
+}
+
+const hasAddr = (i: Record<string, unknown>): boolean => {
+    const v = obj(i.video);
+    const has = (a: unknown) => (typeof a === 'string' ? !!a : Array.isArray(obj(a).UrlList) && (obj(a).UrlList as unknown[]).some((u) => !!str(u)));
+    return [v.playAddr, v.PlayAddrStruct, v.playAddrStruct, v.downloadAddr, v.DownloadAddrStruct, v.downloadAddrStruct].some(has) || (Array.isArray(v.bitrateInfo) && v.bitrateInfo.some((b) => has(obj(b).PlayAddr)));
+};
+
+/** The raw (projected) item of one post: the first entry (detail entries lead) with a play/download address, else the first entry with a play/download address, else the first. */
+export function itemFromCapture(c: Capture, id: string): Record<string, unknown> | null {
+    const all = itemsFromCapture(c, id);
+    return all.find(hasAddr) ?? all[0] ?? null;
 }
 
 /** Playable URLs, size and captions of one captured video. The URLs are signed: never log them. */
 export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
     const hit = itemFromCapture(c, id);
     if (!hit) throw new TtError('not_found', `Post ${id} is not in the capture. Capture a list page that shows it, then try again.`);
+    const entries = itemsFromCapture(c, id);
     const v = obj(hit.video);
     const urls: string[] = [];
     const add = (u: unknown) => {
@@ -325,13 +339,17 @@ export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
         const list = obj(a).UrlList;
         for (const u of Array.isArray(list) ? list : []) add(u);
     };
-    addAddr(v.playAddr);
-    addAddr(v.PlayAddrStruct);
-    addAddr(v.playAddrStruct);
-    addAddr(v.downloadAddr);
-    addAddr(v.DownloadAddrStruct);
-    addAddr(v.downloadAddrStruct);
-    for (const b of Array.isArray(v.bitrateInfo) ? v.bitrateInfo : []) addAddr(obj(b).PlayAddr);
+    // Every entry of the post contributes (a list item with an empty address can precede the detail entry that has it).
+    for (const e of [hit, ...entries.filter((x) => x !== hit)]) {
+        const ev = obj(e.video);
+        addAddr(ev.playAddr);
+        addAddr(ev.PlayAddrStruct);
+        addAddr(ev.playAddrStruct);
+        addAddr(ev.downloadAddr);
+        addAddr(ev.DownloadAddrStruct);
+        addAddr(ev.downloadAddrStruct);
+        for (const b of Array.isArray(ev.bitrateInfo) ? ev.bitrateInfo : []) addAddr(obj(b).PlayAddr);
+    }
     const captions = (Array.isArray(v.subtitleInfos) ? v.subtitleInfos : [])
         .map(obj)
         .filter((x) => str(x.Url))

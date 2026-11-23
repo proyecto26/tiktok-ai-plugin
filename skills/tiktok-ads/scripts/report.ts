@@ -140,6 +140,8 @@ export function buildReport(input: ReportInput): Report {
         }
         if (ads.missing.includes('target_cpa')) missing.push({ item: 'Target CPA (--target-cpa)', impact: 'without it no ad can be scaled or killed on cost, only on frequency' });
         if (ads.columns.missing.length) missing.push({ item: `Export columns not found: ${ads.columns.missing.join(', ')}`, impact: 'verdicts that needed them are unknown or less certain; export them from Ads Manager' });
+        const partialAds = ads.ads.filter((a) => a.flags.includes('partial_spend') || a.flags.includes('partial_conversions')).map((a) => a.name);
+        if (partialAds.length) missing.push({ item: `Spend or conversions missing on some rows of: ${partialAds.join(', ')}`, impact: 'cost per conversion is not judged for those ads; re-export the rows with complete cells' });
         if (ads.skipped_rows) facts.push({ text: `${ads.skipped_rows} total or empty row(s) in the export were skipped.`, source: 'decide on the exported CSV' });
     }
 

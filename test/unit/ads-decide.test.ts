@@ -125,3 +125,28 @@ describe('decide', () => {
         expect(() => decide('', {})).toThrow();
     });
 });
+
+describe('partially missing spend or conversions', () => {
+    const target = { targetCpa: 20 };
+    test('a missing spend cell on one row stops the CPA and the verdict', () => {
+        const a = ad(decide('Ad name,Cost,Conversions\nA,100,1\nA,-,9\n', target), 'A');
+        expect(a.cpa).toBeNull();
+        expect(a.verdict).toBe('unknown');
+        expect(a.flags).toContain('partial_spend');
+        expect(a.missing).toContain('spend');
+        expect(a.reasons.join(' ')).toMatch(/spend is missing on 1 of 2 rows/);
+    });
+    test('a missing conversions cell on one row does the same', () => {
+        const a = ad(decide('Ad name,Cost,Conversions\nA,100,1\nA,100,-\n', target), 'A');
+        expect(a.cpa).toBeNull();
+        expect(a.verdict).toBe('unknown');
+        expect(a.flags).toContain('partial_conversions');
+        expect(a.missing).toContain('conversions');
+        expect(a.reasons.join(' ')).toMatch(/conversions is missing on 1 of 2 rows/);
+    });
+    test('complete rows are unchanged', () => {
+        const a = ad(decide('Ad name,Cost,Conversions\nA,100,5\nA,100,5\n', target), 'A');
+        expect(a.cpa).toBe(20);
+        expect(a.flags).not.toContain('partial_spend');
+    });
+});
