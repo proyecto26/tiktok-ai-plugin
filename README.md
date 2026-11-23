@@ -18,10 +18,9 @@ Every write is a dry run until you approve the exact post. There are no like, fo
 commands, by design.
 
 > **Status: phase 3.** Six of the eight skills are built: the `tiktok` operator (login, reads,
-> publishing), Content, Audit, Research, Ads, Video Breakdown and Travel Studio. A private video and a private photo
-> carousel have been published end to end on a real account; non-private posts, the AI label and the
-> disclosure toggle still need `--experimental` until each has passed live. Video Remake
-> is planned, not built, and marked *(planned)* below. Hashtag and sound reads ran
+> publishing), Content, Audit, Research, Ads, Video Breakdown, Video Remake and Travel Studio. A private video and a
+> private photo carousel have been published end to end on a real account; non-private posts, the AI label and the
+> disclosure toggle still need `--experimental` until each has passed live. Hashtag and sound reads ran
 > live on 2026-11-19 (samples: the first page loads before the hook).
 
 ---
@@ -69,8 +68,12 @@ downloader (or a local file with `fetch --file`), cuts and pacing with ffmpeg, p
 TikTok's own caption track or your local speech model, and a shot list, script and per-shot
 production plan.
 
-### 🎭 **7. TikTok Video Remake (The Director)** *(planned)*
-*Replace one person in a video you may remake* with MiniMax H3 in a local ComfyUI, 1080x1920.
+### 🎭 **7. TikTok Video Remake (The Director)**
+*Replace one person in a video* with one identity photo, using MiniMax H3 in a local ComfyUI. Starts from the
+video's breakdown (or a file): the model looks at the photo and at every stretch of the source (a strip of at
+least 4 frames per second) and fills the identity card and the per-stretch targets; `plan` and `run` then swap
+and place every stretch with the person in it, join long shots, and keep the source's own sound in sync with
+the timeline. Exports `final.mp4` and `final_silent.mp4` at 1080x1920. Local only; it never publishes.
 
 ### 🧳 **8. TikTok Travel Studio (The Producer)**
 *Your travel backlog into drafts.* Scans a folder (date, GPS, rotation, frame rate), groups trips, scores and
@@ -103,7 +106,7 @@ Use a test account first. You are responsible for how you use your account.
 
 - Node.js (for `npx`). Bun is fetched on demand by `npx -y bun`, with zero npm dependencies.
 - Google Chrome, Chromium or Edge for `login`, or an exported cookie file.
-- ffmpeg and ffprobe for the video skills (planned); a local ComfyUI with MiniMax H3 for the remake.
+- ffmpeg and ffprobe for the video skills; a local ComfyUI with MiniMax H3 for the remake.
 
 ### Standards
 

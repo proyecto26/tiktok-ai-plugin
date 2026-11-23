@@ -18,6 +18,19 @@
   override, faces (only with a local `TT_FACE_CMD`), motion centroid, else centre; music is loudness-normalised to
   -14 LUFS and never loops; photo sets are capped at 35 images (constant to confirm against the live composer); drafts
   carry captions linted by `tiktok-content` and the `publish prepare` command, and nothing is published.
+- tiktok-video-remake (new): a port of the Instagram remake skill with schema `tt.remake.v1` and no consent or rights
+  step (`--consent` and `--rights` are refused by name). New commands: `identity` (the model describes the photo into
+  `identity_card.json`), `targets` (per-stretch strips of 4 or more frames per second, so a person who passes through
+  between samples is seen; the model fills `targets.json`), `plan` (swap or keep, point on the seed frame, a 9:16 crop
+  around both end boxes or the whole frame, a prompt built only from the card and the targets) and `run` (swap and
+  place every planned stretch, resumable, `--auto-approve` for batches). Shots over 10 s are split into stretches
+  that overlap by 8 frames and are joined with a crossfade, so every source frame appears once. A generated attempt
+  records the hashes of the photo, card, target and plan entry it was made from and is reused only while they match;
+  changing any of them clears the placement, approval, timeline, sound and both finals. `audio` keeps the source's
+  own sound by default, cut from each timeline piece's own source range (trims and reorders stay in sync), writes
+  `final.mp4` and `final_silent.mp4` on a 1080x1920 canvas (`--canvas fit|cover`), records the credited TikTok sound
+  from the breakdown, and never loops. `init --from-breakdown` also reads the breakdown's credited sound and shot
+  review.
 - tiktok: "too many attempts" is read from a JSON answer's own error message (non-zero status), no longer
   from post captions or comments, so a caption with those words no longer stops a read (capture.js and the
   terminal client). compose.js also records files dropped onto the page, so a dropped replacement video makes
