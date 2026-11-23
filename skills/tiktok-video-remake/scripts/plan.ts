@@ -212,6 +212,8 @@ export interface Plan {
     created_at: string;
     fps: number;
     frames: number;
+    /** Hash of the character card the prompts were built from: the plan is stale when the card changes. */
+    card_sha256: string;
     units: PlanUnit[];
 }
 
@@ -239,7 +241,9 @@ export function buildPlan(o: { stretches: Stretch[]; targets: Targets; frame: { 
         const target_sha256 = targetHash(o.targets.subject, e);
         const prompt = promptFor({ subject: o.targets.subject, card: o.card, target: e });
         const swap = (id: string, first: number, end: number, seedFrame: number, point: [number, number], reverse: boolean, boxes: Array<Box | undefined>): PlanUnit => {
-            const c = cropFor(boxes.filter((b): b is Box => Boolean(b)), o.frame);
+            let c = cropFor(boxes.filter((b): b is Box => Boolean(b)), o.frame);
+            // A point outside the window (boxes and point disagree) cannot be sent: use the whole frame.
+            if (c.crop && !(point[0] >= c.crop.x && point[0] < c.crop.x + c.crop.w && point[1] >= c.crop.y && point[1] < c.crop.y + c.crop.h)) c = { tier: '768', expand: SWAP_DEFAULTS.expand };
             return { id, ...base, action: 'swap', first, end, reverse, seed_frame: seedFrame, point, ...(c.crop ? { crop: c.crop } : {}), tier: c.tier, expand: c.expand, prompt, seed: SWAP_DEFAULTS.seed, target_sha256 };
         };
         const seed = e.seed!;
@@ -255,7 +259,7 @@ export function buildPlan(o: { stretches: Stretch[]; targets: Targets; frame: { 
             units.push(swap(`${s.id}_b`, T, s.end, T, seed.point, false, [seed.box, e.box_last]));
         }
     }
-    return { schema: 'tt.remake.plan.v1', created_at: o.now ?? new Date().toISOString(), fps: o.fps, frames: o.frames, units };
+    return { schema: 'tt.remake.plan.v1', created_at: o.now ?? new Date().toISOString(), fps: o.fps, frames: o.frames, card_sha256: stableHash({ card: o.card }), units };
 }
 
 export type Part = { unit: string } | { source: [number, number] };

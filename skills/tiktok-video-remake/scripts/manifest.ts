@@ -95,6 +95,8 @@ export interface Manifest {
         importedFrom?: { breakdown: string; analysisId: string; sha256: string };
         /** The sound TikTok credits for the source, when the breakdown's capture named one. */
         sound?: { musicId: string | null; title: string | null; artist: string | null; kind: string | null };
+        /** What the breakdown's review said about each of its shots (frames [first, end) of the working file); context for `targets`. */
+        hints?: Array<{ first: number; end: number; type?: string; description?: string; camera?: string }>;
         /** Every frame sits on the constant-rate grid (checked once; frame numbers and times agree). */
         evenTiming?: boolean;
     };

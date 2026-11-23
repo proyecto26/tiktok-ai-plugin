@@ -1,5 +1,5 @@
 // tiktok-video-remake: graphs, geometry, audio matching, the ComfyUI client and the ffmpeg steps.
-// The three fixtures under test/fixtures/remake are the graphs of runs that were kept, with file names,
+// The three fixtures under test/remake-graphs are the graphs of runs that were kept, with file names,
 // prompts and output names replaced: the builders must reproduce every other setting exactly.
 import { describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
@@ -16,7 +16,7 @@ import { main, parseArgs, parsePoint, parseRect } from '../../skills/tiktok-vide
 import { checkId, descendants, invalidate, lockRun, parseSegments, staleContinuation, timelineGaps } from '../../skills/tiktok-video-remake/scripts/manifest.ts';
 
 const ROOT = path.resolve(import.meta.dir, '..', '..');
-const fixture = (n: string): Graph => JSON.parse(readFileSync(path.join(ROOT, 'test', 'fixtures', 'remake', `${n}.json`), 'utf8'));
+const fixture = (n: string): Graph => JSON.parse(readFileSync(path.join(ROOT, 'test', 'remake-graphs', `${n}.json`), 'utf8'));
 const template = (): Graph => JSON.parse(readFileSync(path.join(ROOT, 'skills', 'tiktok-video-remake', 'assets', 'workflows', 'h3_swap.api.json'), 'utf8'));
 const TMP = mkdtempSync(path.join(os.tmpdir(), 'tt-remake-'));
 const hasFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0 && spawnSync('ffprobe', ['-version']).status === 0 && spawnSync('ffmpeg', ['-hide_banner', '-encoders']).stdout?.toString().includes('libx264');
@@ -459,10 +459,11 @@ describe.skipIf(!hasFfmpeg)('remake ffmpeg steps', () => {
         const release = await lockRun(run);
         await expect(main(['approve', run, '--shot', 'far'])).rejects.toThrow(/Another command is working/);
         await release();
-        // A longer timeline than the source needs a recording and a stated basis; it is never looped.
+        // A timeline longer than the source still takes each piece's own source sound (here source 1-2 s a second time); a recording is for what the source has no sound for, and the sound is never looped.
         await main(['approve', run, '--shot', 'far', '--json']);
         await main(['assemble', run, '--segments', 'source:0-3,shot:far', '--json']);
-        await expect(main(['audio', run])).rejects.toThrow(/longer than the source's audio/);
+        await main(['audio', run, '--json']);
+        expect(Math.abs((await ff.probe(path.join(run, 'final.mp4'))).duration - 4)).toBeLessThan(0.1);
         const long = make('long.mp4', '64x64', 6, 'black');
         await main(['audio', run, '--file', long, '--start', '1', '--json']);
         expect(JSON.parse(readFileSync(mf, 'utf8')).audio).toMatchObject({ mode: 'file', start: 1 });

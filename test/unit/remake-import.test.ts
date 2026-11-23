@@ -22,13 +22,13 @@ describe.skipIf(!HAS_FFMPEG)('init --from-breakdown', () => {
     const gray = path.join(tmp, 'gray.mp4');
     let n = 0;
     /** A breakdown folder with a hand-written breakdown.json: the clip has no visible cut, the file says 45. */
-    const breakdown = (o: { dir?: string; file?: string; timebase?: boolean; cfr?: boolean } = {}) => {
+    const breakdown = (o: { dir?: string; file?: string; timebase?: boolean; cfr?: boolean; extra?: Record<string, unknown> } = {}) => {
         const dir = o.dir ?? path.join(tmp, `bd${n++}`);
         const rel = o.file ?? 'source/video.mp4';
         mkdirSync(path.join(dir, 'source'), { recursive: true });
         copyFileSync(gray, path.join(dir, rel));
         const timebase = { rate: '30/1', fps: 30, frames: 120, start_time: 0, file: rel, sha256: sha(path.join(dir, rel)), cfr_copy: Boolean(o.cfr) };
-        writeFileSync(path.join(dir, 'breakdown.json'), JSON.stringify({ schema: 'tt.breakdown.v1', analysis_id: 'a0000abcd-2', ...(o.timebase === false ? {} : { timebase }), cuts: { final: [1.5], frames: { final: [45], detected: [], added: [45], removed: [] } } }));
+        writeFileSync(path.join(dir, 'breakdown.json'), JSON.stringify({ schema: 'tt.breakdown.v1', analysis_id: 'a0000abcd-2', ...(o.timebase === false ? {} : { timebase }), cuts: { final: [1.5], frames: { final: [45], detected: [], added: [45], removed: [] } }, ...(o.extra ?? {}) }));
         return dir;
     };
     const runDir = () => path.join(tmp, `run${n++}`);
@@ -46,6 +46,31 @@ describe.skipIf(!HAS_FFMPEG)('init --from-breakdown', () => {
         const run = runDir();
         await init(run, bd);
         expect(remake(run).source).toMatchObject({ cuts: [45], frames: 120, cutsBy: 'imported', fps: 30, sha256: sha(gray), importedFrom: { analysisId: 'a0000abcd-2', sha256: sha(gray) } });
+    }, 60_000);
+    test('the credited sound and what the review said about each shot come along', async () => {
+        const bd = breakdown({
+            extra: {
+                source: { music_id: '7300000000000000009', audio_attribution: { kind: 'licensed_music', title: 'a sound title', artist: 'an artist', source: 'tiktok_capture' } },
+                shots: [
+                    { id: 1, first_frame: 0, end_frame: 45, review: { type: 'talking_head', description: 'a woman at a desk, looking at the camera', camera: 'static' } },
+                    { id: 2, first_frame: 45, end_frame: 120, review: null },
+                ],
+            },
+        });
+        const run = runDir();
+        await init(run, bd);
+        const m = remake(run);
+        expect(m.source.sound).toEqual({ musicId: '7300000000000000009', title: 'a sound title', artist: 'an artist', kind: 'licensed_music' });
+        expect(m.source.hints).toEqual([{ first: 0, end: 45, type: 'talking_head', description: 'a woman at a desk, looking at the camera', camera: 'static' }, { first: 45, end: 120 }]);
+        // the hint is offered to whoever fills in the targets
+        await main(['targets', run, '--json']);
+        const tasks = JSON.parse(readFileSync(path.join(run, 'target_tasks.json'), 'utf8'));
+        expect(tasks.stretches[0].breakdown).toMatchObject({ description: 'a woman at a desk, looking at the camera' });
+        expect(tasks.stretches[1].breakdown).toBeUndefined();
+        // a breakdown from a local file credits no sound
+        const plain = runDir();
+        await init(plain, breakdown());
+        expect(remake(plain).source.sound).toBeUndefined();
     }, 60_000);
     test('a VFR breakdown is imported from its CFR copy', async () => {
         const bd = breakdown({ file: 'source/work_cfr.mp4', cfr: true });
