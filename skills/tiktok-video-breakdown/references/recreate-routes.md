@@ -6,7 +6,7 @@ without the user agreeing first. Every route is local: the user's own footage, f
 ComfyUI install, or another tool on their machine. Nothing here sends media to an outside service.
 
 The source frames are for composition, timing and style reference. The source audio is kept with the
-breakdown (`source/audio.wav`) and the remake skill reuses it by default; say so when the user wants another sound.
+breakdown (the sound of `source/video.mp4`) and the remake skill reuses it by default; say so when the user wants another sound.
 
 ## What `doctor` tells you
 
@@ -80,7 +80,7 @@ speed.
 
 - Voice: the user records it, or generates it from their own script. Cut the picture to the
   voice, not the reverse.
-- Music: the source audio is in `source/audio.wav` and can be kept as it is. To change it, the user can add the
+- Music: the source sound is in `source/video.mp4` and can be kept as it is. To change it, the user can add the
   credited sound inside the TikTok app when posting, or give another file, or pick or generate a
   track at the measured tempo (`audio.rhythm.bpm`) so the cuts can land on beats the same way.
 - When `cuts_on_beat_ratio` is high, place cuts on beats: beat times for a tempo are

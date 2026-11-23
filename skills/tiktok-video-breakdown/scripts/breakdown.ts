@@ -467,7 +467,7 @@ export function recreateMarkdown(b: Breakdown, tools: Tools): string {
     const r = b.review;
     if (!r) throw new Error('The breakdown has not been reviewed. Run review and apply-review first.');
     const L: string[] = [];
-    L.push('# Recreate plan', '', 'A plan for an original video in the same format. The source video, its frames and its audio (`source/audio.wav`) are kept with the breakdown; the remake skill reuses the audio by default.', '');
+    L.push('# Recreate plan', '', 'A plan for an original video in the same format. The source video, its frames and its sound (`source/video.mp4`) are kept with the breakdown; the remake skill reuses the audio by default.', '');
     L.push('## Format', '', `- Length ${t1(b.video.duration)}s, ${b.video.width}x${b.video.height}, ${b.pacing.shots} shots, median ${b.pacing.median_shot_sec}s.`, `- Hook: ${r.hook}`, `- Style: ${r.visual_style}`);
     if (b.audio.rhythm) L.push(`- Measured tempo ${b.audio.rhythm.bpm} BPM${b.audio.cuts_on_beat_ratio !== null ? `; ${Math.round(b.audio.cuts_on_beat_ratio * 100)}% of cuts land on a beat` : ''}.`);
     L.push(`- Voice: ${tri(r.audio_notes.voice_present)}. Music: ${tri(r.audio_notes.music_present)}.${r.audio_notes.mix ? ` Mix: ${r.audio_notes.mix}` : ''}`, '');
