@@ -143,3 +143,26 @@ describe('music', () => {
         await expect(addMusic({ video: p('vert.mp4'), music: p('nope.mp3'), out: p('x.mp4') })).rejects.toMatchObject({ code: 'music_not_found' });
     });
 });
+
+describe('CLI', () => {
+    const MAIN = path.resolve(import.meta.dir, '../../skills/tiktok-travel-studio/scripts/main.ts');
+    const cli = (args: string[]) => {
+        const r = Bun.spawnSync([process.execPath, MAIN, ...args], { env: { ...process.env, TT_FACE_CMD: '' }, cwd: dir });
+        return { code: r.exitCode, json: JSON.parse(r.stdout.toString()) };
+    };
+    test('--focus with several clips is a usage error; with one clip it is applied', () => {
+        expect(cli(['render', p('motion.mp4'), p('vert.mp4'), '--focus', '0.1,0.5', '--out-dir', p('cli1')]).code).toBe(2);
+        const r = cli(['render', p('motion.mp4'), '--focus', '0.1,0.5', '--out-dir', p('cli1'), '--length', '1']);
+        expect(r.code).toBe(0);
+        expect(r.json.clips[0].focus).toEqual({ x: 0.1, y: 0.5, source: 'override' });
+    });
+    test('bad --focus is a coded error, music prints loudness and the no-loop fact', () => {
+        const bad = cli(['render', p('motion.mp4'), '--focus', '2,2', '--out-dir', p('cli1')]);
+        expect(bad.code).toBe(1);
+        expect(bad.json.error.code).toBe('bad_focus');
+        const m = cli(['music', '--video', p('vert.mp4'), '--file', p('short.wav'), '-o', p('cli_music.mp4')]);
+        expect(m.code).toBe(0);
+        expect(m.json.looped).toBe(false);
+        expect(m.json.loudness.target_lufs).toBe(-14);
+    });
+});

@@ -1,12 +1,16 @@
 #!/usr/bin/env -S npx -y bun
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
 import { analyse, combine, resolveFaceCmd, termsOf } from './analyse.ts';
 import { ToolError, installHint, toolVersion } from './ff.ts';
 import { DEFAULT_GAP_HOURS, DEFAULT_MAX_KM, SCHEMA, groupTrips, loadLibrary, saveJson, type Library } from './library.ts';
-import { scanFolders } from './media.ts';
+import { buildDrafts, loadCaptionLinter, type PhotoSetsFile } from './drafts.ts';
+import { probeMedia, scanFolders } from './media.ts';
+import { addMusic } from './music.ts';
+import { PHOTO_POST_MAX, buildPhotoSets, type Ratio } from './photos.ts';
+import { DEFAULT_LENGTH, parseFocus, renderClip } from './render.ts';
 
 const HELP = `TikTok travel studio: a travel backlog into vertical cuts, photo sets and local drafts (never publishes)
 
@@ -31,20 +35,26 @@ const print = (o: unknown) => process.stdout.write(`${JSON.stringify(o, null, 2)
 interface Args {
     _: string[];
     flags: Record<string, string | true>;
+    /** Every value of a flag given more than once. */
+    lists: Record<string, string[]>;
 }
 const VALUE_FLAGS = new Set(['o', 'out', 'out-dir', 'n', 'kind', 'trip', 'gap-hours', 'max-km', 'length', 'start', 'focus', 'shortlist', 'video', 'videos', 'file', 'fade', 'ratio', 'per-set', 'photosets', 'place', 'hook', 'caption', 'library', 'title', 'description']);
 
 function parseArgs(argv: string[]): Args {
-    const out: Args = { _: [], flags: {} };
+    const out: Args = { _: [], flags: {}, lists: {} };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a.startsWith('--') || (a.startsWith('-') && a.length === 2 && !/\d/.test(a[1]))) {
             const name = a.replace(/^-+/, '');
             const eq = name.indexOf('=');
-            if (eq > 0) out.flags[name.slice(0, eq)] = name.slice(eq + 1);
+            const set = (k: string, v: string) => {
+                out.flags[k] = v;
+                (out.lists[k] ??= []).push(v);
+            };
+            if (eq > 0) set(name.slice(0, eq), name.slice(eq + 1));
             else if (VALUE_FLAGS.has(name)) {
                 if (i + 1 >= argv.length) throw new UsageError(`--${name} needs a value.`);
-                out.flags[name] = argv[++i];
+                set(name, argv[++i]);
             } else out.flags[name] = true;
         } else out._.push(a);
     }
@@ -167,6 +177,104 @@ async function cmdShortlist(a: Args) {
     return 0;
 }
 
+interface ShortEntry {
+    path: string;
+    kind: 'video' | 'photo';
+    start?: number;
+    focus?: [number, number] | null;
+    taken_at?: string | null;
+}
+async function loadShortlist(file: string): Promise<ShortEntry[]> {
+    let j: any;
+    try {
+        j = JSON.parse(await readFile(path.resolve(file), 'utf8'));
+    } catch {
+        throw new ToolError('shortlist_not_found', `Cannot read ${file}.`, 'Run shortlist first.');
+    }
+    if (j.schema !== SCHEMA || j.kind !== 'shortlist' || !Array.isArray(j.entries)) throw new ToolError('bad_schema', `${file} is not a ${SCHEMA} shortlist.`);
+    return j.entries;
+}
+const validFocus = (f: unknown): [number, number] | null => (Array.isArray(f) && f.length === 2 ? parseFocus(`${f[0]},${f[1]}`) : null);
+
+async function cmdRender(a: Args) {
+    await requireFf();
+    const sl = str(a, 'shortlist');
+    const entries: ShortEntry[] = sl ? (await loadShortlist(sl)).filter((e) => e.kind === 'video') : a._.slice(1).map((p) => ({ path: p, kind: 'video' as const }));
+    if (!entries.length) throw new UsageError('render needs video files or --shortlist with video entries.');
+    const focusFlag = str(a, 'focus');
+    if (focusFlag && entries.length !== 1) throw new UsageError('--focus applies to one clip; for several, set `focus` per entry in the shortlist file.');
+    const startFlag = num(a, 'start');
+    if (startFlag !== undefined && entries.length !== 1) throw new UsageError('--start applies to one clip; for several, set `start` per entry in the shortlist file.');
+    const outDir = path.resolve(str(a, 'out-dir', 'o', 'out') ?? 'renders');
+    const length = num(a, 'length') ?? DEFAULT_LENGTH;
+    const reports = [];
+    const used = new Set<string>();
+    for (const e of entries) {
+        const item = await probeMedia(e.path);
+        const base = path.basename(item.path, path.extname(item.path));
+        let name = `${base}_9x16`;
+        if (used.has(name)) name = `${base}_${item.id}_9x16`;
+        used.add(name);
+        log(`[render] ${item.path}`);
+        reports.push(await renderClip(item, outDir, { length, start: startFlag ?? (typeof e.start === 'number' ? e.start : undefined), focus: focusFlag ? parseFocus(focusFlag) : validFocus(e.focus), keepAudio: a.flags['keep-audio'] === true, name }));
+    }
+    print({ ok: true, out_dir: outDir, rendered: reports.length, clips: reports, next: 'music --video <clip> --file <your audio> -o <out.mp4>, or drafts --videos <clips>' });
+    return 0;
+}
+
+async function cmdMusic(a: Args) {
+    await requireFf();
+    const video = str(a, 'video');
+    const file = str(a, 'file');
+    const out = str(a, 'o', 'out');
+    if (!video || !file || !out) throw new UsageError('music needs --video <rendered.mp4> --file <audio> -o <out.mp4>.');
+    const r = await addMusic({ video: path.resolve(video), music: path.resolve(file), out: path.resolve(out), start: num(a, 'start'), fade: num(a, 'fade') });
+    print({ ok: true, ...r });
+    return 0;
+}
+
+async function cmdPhotos(a: Args) {
+    await requireFf();
+    const ratio = str(a, 'ratio') ?? '9:16';
+    if (ratio !== '9:16' && ratio !== '4:5' && ratio !== 'both') throw new UsageError('--ratio is 9:16, 4:5 or both.');
+    const sl = str(a, 'shortlist');
+    let files = a._.slice(1);
+    const focusByPath: Record<string, [number, number] | null> = {};
+    if (sl) {
+        const es = (await loadShortlist(sl)).filter((e) => e.kind === 'photo').sort((x, y) => String(x.taken_at ?? '').localeCompare(String(y.taken_at ?? '')));
+        files = es.map((e) => e.path);
+        for (const e of es) focusByPath[path.resolve(e.path)] = validFocus(e.focus);
+    }
+    const focus = str(a, 'focus');
+    if (focus && files.length !== 1) throw new UsageError('--focus applies to one photo; for several, set `focus` per entry in the shortlist file.');
+    const outDir = path.resolve(str(a, 'out-dir', 'o', 'out') ?? 'photos');
+    const r = await buildPhotoSets(files, { outDir, ratio: ratio as Ratio | 'both', perSet: num(a, 'per-set'), focus: focus ? parseFocus(focus) : null, focusByPath });
+    const file = path.join(outDir, 'photosets.json');
+    await saveJson(file, { schema: SCHEMA, kind: 'photosets', created_at: new Date().toISOString(), limit: PHOTO_POST_MAX, limit_note: 'Working number from recon, to be confirmed in the live photo composer (PHOTO_POST_MAX in scripts/photos.ts).', sets: r.sets, warnings: r.warnings });
+    print({ ok: true, photosets: file, sets: r.sets.map((s) => ({ id: s.id, ratio: s.ratio, count: s.count })), warnings: r.warnings, next: `drafts --photosets ${file}` });
+    return 0;
+}
+
+async function cmdDrafts(a: Args) {
+    const videos = (str(a, 'videos') ?? '').split(',').map((s) => s.trim()).filter(Boolean).concat(str(a, 'video') ? [str(a, 'video')!] : []);
+    const ps = str(a, 'photosets');
+    let photosets: PhotoSetsFile | null = null;
+    if (ps) {
+        try {
+            photosets = JSON.parse(await readFile(path.resolve(ps), 'utf8'));
+        } catch {
+            throw new ToolError('photosets_not_found', `Cannot read ${ps}.`, 'Run photos first.');
+        }
+        if (photosets?.schema !== SCHEMA || photosets.kind !== 'photosets') throw new ToolError('bad_schema', `${ps} is not a ${SCHEMA} photosets file.`);
+    }
+    const linter = await loadCaptionLinter();
+    const d = await buildDrafts({ videos, photosets, place: str(a, 'place'), hook: str(a, 'hook'), captions: a.lists.caption ?? [] }, linter);
+    const out = path.resolve(str(a, 'o', 'out') ?? 'drafts.json');
+    await saveJson(out, d);
+    print({ ok: true, drafts_file: out, drafts: d.drafts.length, lint: d.lint, summary: d.drafts.map((x) => ({ id: x.id, kind: x.kind, status: x.status, command: x.prepare?.command ?? null })), warnings: d.warnings, note: d.publishing });
+    return 0;
+}
+
 async function main(argv: string[]): Promise<number> {
     if (!argv.length || argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
         process.stdout.write(HELP);
@@ -185,6 +293,14 @@ async function main(argv: string[]): Promise<number> {
                 return await cmdScore(a);
             case 'shortlist':
                 return await cmdShortlist(a);
+            case 'render':
+                return await cmdRender(a);
+            case 'music':
+                return await cmdMusic(a);
+            case 'photos':
+                return await cmdPhotos(a);
+            case 'drafts':
+                return await cmdDrafts(a);
             default:
                 throw new UsageError(`Unknown command "${a._[0]}". Run with --help.`);
         }

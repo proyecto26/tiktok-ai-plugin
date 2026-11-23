@@ -12,7 +12,7 @@ export function probeJson(file: string): any {
 }
 /** One gray frame at time t, scaled to w x h, as bytes (row-major). */
 export function grayFrame(file: string, t: number, w: number, h: number): Uint8Array {
-    const r = spawnSync('ffmpeg', ['-hide_banner', '-v', 'error', '-nostdin', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', `scale=${w}:${h},format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
+    const r = spawnSync('ffmpeg', ['-hide_banner', '-v', 'error', '-nostdin', ...(t > 0 ? ['-ss', String(t)] : []), '-i', file, '-frames:v', '1', '-vf', `scale=${w}:${h},format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
     return new Uint8Array(r.stdout);
 }
 
