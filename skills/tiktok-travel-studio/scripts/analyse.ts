@@ -85,7 +85,7 @@ export interface Faces {
     centre: [number, number] | null;
 }
 
-async function detectFaces(item: Pick<Item, 'path' | 'kind' | 'duration' | 'width' | 'height'>, cmd: string): Promise<Faces> {
+export async function detectFaces(item: Pick<Item, 'path' | 'kind' | 'duration' | 'width' | 'height'>, cmd: string): Promise<Faces> {
     const tmp = await mkdtemp(path.join(os.tmpdir(), 'tt-faces-'));
     try {
         const stamps = item.kind === 'photo' || !item.duration ? [0] : [0.25, 0.5, 0.75].map((f) => (item.duration as number) * f);

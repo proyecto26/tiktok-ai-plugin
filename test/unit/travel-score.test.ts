@@ -32,13 +32,13 @@ describe('terms', () => {
     test('a sharp photo scores sharper than a blurred one (blurdetect)', async () => {
         const a = await analyse(await probeMedia(p('lib/sharp.jpg')), {});
         const b = await analyse(await probeMedia(p('lib/blur.jpg')), {});
-        expect(a.sharpness.score!).toBeGreaterThan(b.sharpness.score!);
+        expect(a.sharpness.score!).toBeGreaterThan(b.sharpness.score as number);
         expect(a.sharpness.method).toBe('blurdetect');
     });
     test('exposure: a very dark frame scores below a normal one', async () => {
         const n = await analyse(await probeMedia(p('lib/sharp.jpg')), {});
         const d = await analyse(await probeMedia(p('lib/dark.jpg')), {});
-        expect(n.exposure.score).toBeGreaterThan(d.exposure.score);
+        expect(n.exposure.score as number).toBeGreaterThan(d.exposure.score as number);
         expect(d.exposure.yavg).toBeLessThan(60);
     });
     test('motion: moving box > static clip; centroid follows the box (right side); photos have no motion', async () => {
