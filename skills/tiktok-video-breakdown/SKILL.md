@@ -24,7 +24,7 @@ operator's guarded downloader. A local file needs nothing else.
 ## Boundaries
 
 - The goal is a new video in the same format. The breakdown downloads the video, extracts its frames and
-  keeps the source video with its sound (`source/video.mp4`). `tiktok-video-remake` reuses that
+  keeps the source audio inside the source video (`source/video.mp4`). `tiktok-video-remake` reuses that
   audio by default, or replaces it with another file or with no sound when the user says so.
 - **Local only.** Downloads stay in the output directory. Nothing is sent to any outside service:
   no cloud transcription, no cloud or paid generation. Transcripts come from TikTok's own caption track,
