@@ -131,7 +131,7 @@ describe('report', () => {
 describe('skill package', () => {
     const skill = readFileSync(path.join(SKILL, 'SKILL.md'), 'utf8');
     test('frontmatter name and read-only statement', () => {
-        expect(skill).toMatch(/^---\nname: tiktok-ads\n/);
+        expect(skill).toMatch(/^---\r?\nname: tiktok-ads\r?\n/);
         expect(skill).toMatch(/read-only/i);
         expect(skill).toMatch(/never (creates|promotes|boosts)|does not create/i);
     });
