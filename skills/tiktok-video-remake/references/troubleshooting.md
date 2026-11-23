@@ -51,6 +51,11 @@ selection problem visible there.
 | The original person flashes for a frame or two at a cut | a source stretch between two shots, or a shot that stops before the cut | `assemble` now refuses it; plan with `--scene` |
 | The replaced person moves in jumps (two still frames, then a jump) while the rest is smooth; `place` warns about `cadence` | the model resampled 24-in-30 material and lost real frames (an attempt made with `--all-frames`, or before this check existed) | a new attempt without `--all-frames` |
 | A slight regular stutter, also in the source | 24 fps material shown at 30 fps (one repeat in five) | that is the source's own rhythm; `place` keeps it on purpose |
+| The original person shows for a moment in a kept stretch, next to the new one | `present` was answered from too few frames of the strip | look at every strip frame again (they are 0.25 s apart), set `present` and `seen_at`, `targets --check`, `plan`, `run` |
+| `run` says the targets or the character card changed after the plan was made | `targets.json` or the card was edited after `plan` | `plan <run>` again (it rebuilds plan.json; re-apply any hand edit) |
+| `run` says a shot has a job that never finished | an earlier run timed out or lost the connection | `run <run> --resume`: it collects the job and never submits it twice |
+| A shot of more than 10 s shows a soft change at one moment | the crossfade over the 8 frames two stretches share | expected: it is a crossfade of two generations of the same frames; judge it in motion, and regenerate the later stretch if it shows |
+| The sound sits with the wrong picture after a trim | an old `final.mp4` from before the edit | `audio` after every `assemble`: it cuts the sound from the timeline, and changing a shot clears the old one |
 
 ## When to stop
 

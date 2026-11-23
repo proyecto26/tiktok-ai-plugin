@@ -1,7 +1,7 @@
 # The remake workflow, step by step
 
 What worked, in the order it is done, with the reason behind each rule. The numbers are from one
-production (a 15 s vertical reel, 720x1280 at 30 fps, three shots; an RTX 5090 with 32 GB). Treat
+production (a 15 s vertical video, 720x1280 at 30 fps, three shots; an RTX 5090 with 32 GB). Treat
 them as starting points, not constants.
 
 ## 0. What the method is
@@ -25,9 +25,10 @@ Tried first and rejected, so they are not rediscovered:
 
 ## 1. Break the source down
 
-Use the `instagram-video-breakdown` skill: it gives shot boundaries, who is in each shot and how
-large. From it, decide per shot: **keep** (the person is not in it), **swap**, or **continue**
-(extend the last swapped shot). Write the plan down before generating; each generation is minutes.
+Use the `tiktok-video-breakdown` skill: it gives the working file, the frame-exact shot boundaries and a review of
+each shot. It does not measure where the person is, what they wear or how the shot is lit, so `targets` measures
+that itself, per stretch (below). From the targets, `plan` decides per stretch: **keep** (the person is nowhere in
+it) or **swap**; **continue** (extend the last swapped shot) stays a decision for the user. Each generation is minutes.
 
 Cut times from the breakdown are approximate to a frame or two, and one frame is enough to show
 the original person at a cut. `init` measures the cuts from the picture (a jump in the frame
@@ -37,21 +38,41 @@ be missed: correct it with `scenes <run> --set <first frame of each shot,...>`. 
 `--scene <n>`. The first frame the model sees is saved as `shots/<id>/first_frame.jpg` on every
 run: check that it belongs to the right shot.
 
-## 2. One identity, stated consent
+## 2. One identity, and what the model measures
 
-`init <run> --source <video> --identity <photo> --consent "<statement>"`, or, when the video was
-already broken down, `init <run> --from-breakdown <breakdown folder> --identity … --consent …`: the
+`init <run> --source <video> --identity <photo>`, or, when the video was
+already broken down, `init <run> --from-breakdown <breakdown folder> --identity …`: the
 source is the breakdown's working file (its constant-rate copy for a variable-rate video) and the
 scenes are its frame cuts, so nothing is measured twice.
 
 - One photo: front or three-quarter view, face unobstructed, the wardrobe wanted in the remake
   visible, even light. The wardrobe in the photo is what the model dresses the person in.
 - The same photo for every shot. Changing reference between shots changed the face.
-- `--character` stores the character card (see `prompts.md`) so every prompt repeats it.
+- `identity` makes the model write the character card from the photo (`identity_card.json`) so every prompt repeats
+  it (see `prompts.md`); `--character` at init gives one directly. Changing the card or the photo (`identity --photo`)
+  makes every swapped shot out of date.
+
+### Stretches, targets, plan
+
+The engine picks the person on the FIRST frame it is sent, so what is asked is asked per stretch (a run of at most
+10 s), not per shot. A shot over 10 s is split into stretches that overlap by 8 frames; `place` crossfades the
+overlap so every source frame of the shot appears once. `targets` gives, for each stretch, its exact first and last
+frame and a strip of the whole stretch at 4 or more frames per second (no two frames more than 0.25 s apart), so a
+person who enters and leaves between two samples is still seen. The model answers `present` with the strip times where
+the subject appears (`seen_at`), or `absent_checked`; a stretch where they appear in any frame is swapped, one where
+they do not is kept (it shows no one to replace). The seed (`first`, `last`, or a time that splits the stretch) says
+where the point is valid: the engine tracks forwards from the first frame it receives, so a stretch seeded on its last
+frame runs reversed, and a stretch split at `t` runs [start, t] reversed and [t, end] forwards (frame `t` is in both
+and is joined once).
+
+The crop is the union of the subject's boxes at both ends grown to 9:16 at 2.5 times its height, at tier 480 with mask
+growth 32; if that union is wider than 60% of the frame or the subject is 35% of the frame's height or more, the whole
+frame at tier 768. `plan.json` can be edited; `run` regenerates a shot only when its photo, card, target or plan entry
+has changed.
 
 ## 3. Swap: which options for which shot
 
-Every swap is `swap <run> --shot <id> --scene <n>` (the whole shot, cut to cut) or
+With a plan, `run` does all of this. By hand, every swap is `swap <run> --shot <id> --scene <n>` (the whole shot, cut to cut) or
 `--scene <n> --start <s>` (from a later point, still ending on the cut), plus:
 
 | Shot | Options | Kept run |
@@ -89,7 +110,7 @@ source puts a flash of the original person (one or two frames) right at the cut,
 `--leave-original` accepts it when those frames really do not show the person. A stretch that
 crosses a cut is refused too: the tracker and the model would see the jump.
 
-**Frame rhythm.** The model works at 24 fps. Many reels are 24 fps material carried at 30 fps: one
+**Frame rhythm.** The model works at 24 fps. Many videos are 24 fps material carried at 30 fps: one
 frame in five repeats the one before. `swap` measures that and sends the model only the distinct
 frames (at 24 fps, so nothing is resampled); `place` shows each generated frame where its source
 frame was and repeats it where the source repeats. Without this, the model's own 30->24 resampling
@@ -166,15 +187,17 @@ a few frames of the source.
 
 ## 7. Audio
 
-`--rights "<basis>"` is required every time: the user's own statement of why the video may be
-published with this sound. The sound of someone else's reel is usually not theirs to republish;
-"review copy only, not for publication" is a valid basis for a draft.
+By default the remake keeps the source's own sound. `audio <run>` cuts it along the timeline: every piece of the
+timeline (a kept stretch of the source, or a swapped shot, which stands for its own stretch) takes the source audio of
+its own source time range, in timeline order, with a short crossfade where two pieces are not neighbours in the
+source. So a trim or a reorder keeps the sound with its picture (`assemble` still notes places where the timeline
+skips or repeats source time). `--audio none` makes `final.mp4` silent too, to pick a sound in the app.
+`final_silent.mp4` is always written. The sound TikTok credits for the source (`musicId`, title) is recorded when the
+breakdown's capture named one.
 
-- Remake no longer than the source: `audio <run> --rights "..."` reuses the source's sound, in
-  sync as long as the timeline does not skip or repeat source time (`assemble` warns when it does).
-- Longer (a continuation): the music has to go on. Looping the last seconds was heard
+- A continued shot has no sound in the source: the music has to go on, and looping the last seconds was heard
   immediately. Give a longer recording of the same track:
-  `audio <run> --file <track> --match --rights "<basis>"`.
+  `audio <run> --file <track> --match`.
   `--match` finds where the source's sound sits inside the recording (to the sample when it is
   the same master) and continues from there. If it reports no confident match, the recording is a
   different version: place it by ear with `--start <seconds>`.
@@ -183,11 +206,12 @@ published with this sound. The sound of someone else's reel is usually not their
   recording and refuses a result more than 20 ms off. When the measurement is inconclusive it
   says so and the sync has to be checked by ear. (Seeking a compressed audio file instead of
   cutting decoded samples left the sound 45 ms late in the original production.)
-- Having the file is not a basis for publishing it. For Instagram, a track from its own library
-  is added in the app: deliver a review copy and say so.
+- The picture is exported to 1080x1920: a 9:16 source is scaled; any other shape goes over a blurred copy of itself
+  (`--canvas fit`, default) or is cropped to cover (`--canvas cover`). Everything before this step stays at the
+  source's own size and coordinates.
 
 ## 8. Review and hand-off
 
 `compare <run>` writes source and remake side by side. The user watches `final.mp4` with sound.
-Publishing is a separate decision and a separate skill (`instagram`): reel with `--ai-label`,
-tags if wanted. This skill stops at the file.
+Publishing is a separate decision and a separate skill (`tiktok`): `publish prepare --ai-generated` sets the label.
+This skill stops at the file.

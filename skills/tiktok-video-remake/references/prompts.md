@@ -6,7 +6,9 @@ English prompts worked best.
 
 ## The character card (written once, repeated in every shot)
 
-Describe what the identity photo shows and nothing else:
+`identity` asks for it as seven fields (hair, face, skin, build, distinctive marks, jewellery, default wardrobe) in
+`identity_card.json` and writes the one sentence from them; the same sentence goes into every prompt. Describe what
+the identity photo shows and nothing else. The shape, for reference:
 
 ```
 <who>: <face in three or four words>, <hair: colour, length, how it is worn>, <build>,
@@ -17,13 +19,24 @@ Example with invented details:
 `a woman with an oval face and dark eyes, long dark brown hair worn loose, slim build with slender
 arms, a black lace sleeveless mini dress with thin straps, no jewellery`
 
-Rules: the same sentence, word for word, in every shot (store it with `init --character`). Do not
+Rules: the same sentence, word for word, in every shot (`identity` stores it; `init --character` gives one directly). Do not
 add traits the photo does not show; the model invents them differently each time. Do not describe
 the ORIGINAL person.
 
-## The shot card (written per shot, from the breakdown)
+## The shot card (written per stretch, in targets.json, from the frames)
 
-Four facts, taken from the source frame, not imagined:
+The fields `framing`, `camera_move`, `light`, `wardrobe` (of the person being replaced) and `action`, plus `others`
+(the other people in the stretch), taken from the source frames, not imagined. `plan` builds the prompt from the
+card and these fields and a fixed closing clause, and nothing else:
+
+```
+Replace the selected person in <Video 1> (<subject>, wearing <wardrobe>) with the person from <Picture 1>: <card>.
+Framing: ... Camera: ... Light: ... What the person does: ... [Other people in frame, to stay unchanged: ...]
+Keep exactly the same pose, movement, timing and position as in <Video 1>. Keep the background, the lighting and
+every other person unchanged.
+```
+
+The facts, taken from the source frame:
 
 - framing: close-up / medium shot from head to hips / full body / wide shot with the person small
 - camera: static / slow push-in / pan left / handheld
