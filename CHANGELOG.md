@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- tiktok-ads: new read-only skill. `eligibility` (Creator Rewards criteria: followers, 30-day views from
+  Studio `vv_history`, age and region unknown unless stated; `unavailable: not offered to this account or region`
+  when no program list names it), `analytics` (current vs previous period, traffic sources, search terms,
+  rewards), `monetization` (programs active / eligible / ineligible), `decide` (kill / keep / scale / wait per ad
+  from an Ads Manager CSV; tolerant of missing columns and `$1,234.50` / `1.234,50 EUR` strings), and `report`
+  (FACTS / HYPOTHESES / MISSING / ACTIONS, JSON and markdown). References ported from instagram-ads and retargeted
+  to Spark Ads, Promote, Ads Manager, Creator Rewards and TikTok Shop affiliates, dated and marked verify.
+- tiktok: `scripts/browser/studio-capture.js`, a read-only hook for TikTok Studio analytics and monetization
+  answers (own allowlist, sanitized projection that keeps metric and program fields and the `type_requests`
+  query, strips URLs, log ids and signing tokens, schema `tt.studio-capture.v1`, same stop signals as
+  `capture.js`). Endpoints seen live 2026-11-22; shapes in `skills/tiktok-ads/references/studio-capture.md`.
+
 - tiktok: "too many attempts" is read from a JSON answer's own error message (non-zero status), no longer
   from post captions or comments, so a caption with those words no longer stops a read (capture.js and the
   terminal client). compose.js also records files dropped onto the page, so a dropped replacement video makes

@@ -27,6 +27,7 @@ npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 | `comments --capture <file> [--limit N]` | Comments of a post |
 | `hashtag --capture <file> [--limit N]` | Posts of a hashtag page (`/tag/<name>`) |
 | `sound --capture <file> [--limit N]` | Posts of a sound page (`/music/<slug>-<id>`) |
+| (Studio) `scripts/browser/studio-capture.js` | In-page capture of TikTok Studio analytics and monetization answers, read by the `tiktok-ads` skill (see below) |
 | `publish prepare\|begin\|finish\|reconcile\|status` | Publish a video or photo post through TikTok Studio (see below) |
 
 ## Reading through your own Chrome
@@ -68,6 +69,25 @@ marks the account signal, like every other command; `more()` stops scrolling onc
 
 Pace yourself: one tab, few page loads, long pauses. A 403 "Access denied" page, a captcha or a "Please wait"
 page means stop: write nothing more, close the tab and tell the user.
+
+## Reading TikTok Studio (analytics and monetization)
+
+The `tiktok-ads` skill reads Studio data from a separate in-page hook, `scripts/browser/studio-capture.js`, which
+has its own allowlist (seen live 2026-11-22: `/aweme/v2/data/insight/`, `/tiktok/v1/analytics/insights/`,
+`/tiktok/v1/creator/m10n_center/(all_programs|settings|reward_analytics)`). `capture.js` is not used here: it turns
+any unknown path into an item list and would drop the metrics.
+
+1. Open `https://www.tiktok.com/tiktokstudio/analytics` in the signed-in tab and wait for the charts (about 10 s).
+2. Run the text of `studio-capture.js` in the page (a browser tool that can run JavaScript in the page). It
+   never clicks, scrolls or sends a request; it copies the answers the page already fetched.
+3. Run it again after the charts load; save the returned `tt.studio-capture.v1` JSON to a file. Repeat on
+   `/tiktokstudio/monetization`.
+4. Pass the files to `tiktok-ads` (`analytics|monetization|eligibility --studio <file>`).
+
+The capture keeps metric fields, program fields and the `type_requests` query (it says which metrics were
+asked); it drops every URL, log id and signing parameter. A 429 or "too many attempts" marks `rateLimited`, a
+401/403, captcha or HTML answer marks `challenge`; the reader refuses both: stop and tell the owner. Same pacing as
+above: one tab, at least 60 s between page loads.
 
 ## Publishing (video or photo post, private by default)
 

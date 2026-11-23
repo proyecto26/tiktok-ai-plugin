@@ -5,6 +5,13 @@
 Source: https://github.com/proyecto26/instagram-ai-plugin (MIT, Copyright (c) 2026 Proyecto 26).
 Used in: `skills/tiktok/scripts/` (paths, locked storage, cookie store and CDP login are ported from its `skills/instagram/scripts/`).
 
+## marketingskills (ads)
+
+Source: https://github.com/coreyhaines31/marketingskills (MIT, Copyright (c) 2025 Corey Haines), through
+instagram-ai-plugin, in its `instagram-ads` skill.
+Used in: `skills/tiktok-ads/references/{decision-system,tiktok-ads-playbook,ad-copy-templates,audience-targeting}.md`
+(adapted and retargeted to TikTok; each file names its upstream).
+
 ## instagram-agent-skill
 
 Source: instagram-agent-skill (MIT, Copyright (c) 2026 Jake Schincariol), through instagram-ai-plugin.

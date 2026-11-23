@@ -17,10 +17,10 @@ ComfyUI, Homebrew and open-source packages running on your machine.
 Every write is a dry run until you approve the exact post. There are no like, follow or DM
 commands, by design.
 
-> **Status: phase 3.** Five of the eight skills are built: the `tiktok` operator (login, reads,
-> publishing), Content, Audit, Research and Video Breakdown. A private video and a private photo
+> **Status: phase 3.** Six of the eight skills are built: the `tiktok` operator (login, reads,
+> publishing), Content, Audit, Research, Ads and Video Breakdown. A private video and a private photo
 > carousel have been published end to end on a real account; non-private posts, the AI label and the
-> disclosure toggle still need `--experimental` until each has passed live. Ads, Video Remake and
+> disclosure toggle still need `--experimental` until each has passed live. Video Remake and
 > Travel Studio are planned, not built, and marked *(planned)* below. Hashtag and sound reads ran
 > live on 2026-11-19 (samples: the first page loads before the hook).
 
@@ -56,8 +56,12 @@ It says "sample of N posts" unless the operator read the whole list.
 creator's own median, at least 8 posts), sounds and hashtags recurring across winners, and a trend fit
 check.
 
-### 💰 **5. TikTok Ads (The Strategist)** *(planned)*
-*Monetization and Promote, read-only advice.* You create campaigns in the app or Ads Manager.
+### 💰 **5. TikTok Ads (The Strategist)**
+*Monetization and paid promotion, read-only advice.* From a capture of your own TikTok Studio pages
+(`studio-capture.js`) and an Ads Manager CSV export: Creator Rewards criteria met / not met / unknown with the
+numbers, overview analytics (current vs previous period, traffic sources, search terms, rewards), the
+programs the account can join, and kill / keep / scale per ad, as FACTS / HYPOTHESES / MISSING / ACTIONS. You
+create and change campaigns yourself in the app or Ads Manager; this skill never does.
 
 ### 🎬 **6. TikTok Video Breakdown (The Editor)**
 *Any TikTok into shots and script.* The video from a capture of your own Chrome through a guarded
