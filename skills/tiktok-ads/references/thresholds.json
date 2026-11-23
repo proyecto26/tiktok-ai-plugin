@@ -1,0 +1,13 @@
+{
+  "as_of": "2026-11-22",
+  "note": "Starting points, not TikTok rules: verify against your own account, recalibrate after 30 days.",
+  "gate_multiple": 3,
+  "kill_multiple": 1.5,
+  "scale_multiple": 0.8,
+  "scale_min_conversions": 10,
+  "frequency_warning": 2.5,
+  "frequency_critical": 4,
+  "ctr_floor_pct": 0.4,
+  "cpm_high_multiple": 1.5,
+  "no_target_min_impressions": 5000
+}
