@@ -1,5 +1,7 @@
 // tiktok-video-remake: stretches, the identity card, the targets and the plan (pure functions; no media, no network).
 import { describe, expect, test } from 'bun:test';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
 import { OVERLAP_FRAMES, sceneStretches, stripFrames, stretchesOfScene } from '../../skills/tiktok-video-remake/scripts/stretch.ts';
 import { PROMPT_CLAUSE, buildCard, buildPlan, cropFor, freshOf, promptFor, stableHash, unitsOf, validateCard, validatePlan, validateTargets, type Targets } from '../../skills/tiktok-video-remake/scripts/plan.ts';
@@ -231,5 +233,27 @@ describe('freshness hashes', () => {
         expect(freshOf({ photoSha256: 'p', card: 'c', target: { x: 1 }, entry: { ...entry, point: [1, 3] } }).plan).not.toBe(base.plan);
         // The generation seed is a plan input too.
         expect(freshOf({ photoSha256: 'p', card: 'c', target: { x: 1 }, entry: { ...entry, crop: { x: 0, y: 0, w: 64, h: 64 } } }).plan).not.toBe(base.plan);
+    });
+});
+
+describe('the skill text', () => {
+    const dir = path.resolve(import.meta.dir, '../../skills/tiktok-video-remake');
+    const docs = [path.join(dir, 'SKILL.md'), ...readdirSync(path.join(dir, 'references')).map((f) => path.join(dir, 'references', f))];
+    test('asks nobody for consent or rights, and has no gate', () => {
+        for (const f of docs) {
+            const t = readFileSync(f, 'utf8');
+            expect(t).not.toMatch(/--consent|--rights|stated consent|agreed to appear|refuse to proceed|basis for (a video|publishing)/i);
+        }
+    });
+    test('names no tool of one assistant: every step is a command with JSON output', () => {
+        const t = readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
+        expect(t).not.toMatch(/javascript_tool|claude-in-chrome|AskUserQuestion|mcp__|Claude Code|\bClaude\b/);
+        expect(t).toMatch(/--json/);
+        expect(t).toMatch(/publish prepare --ai-generated/);
+    });
+    test('keeps the content limits in one paragraph', () => {
+        const t = readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
+        expect(t).toMatch(/never depict a minor/i);
+        expect(t).toMatch(/impersonate a public figure/i);
     });
 });

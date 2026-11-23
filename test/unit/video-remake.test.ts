@@ -13,7 +13,7 @@ import { Comfy, ComfyError, checkComfyUrl, failureOf, graphHash, outputsOf, pick
 import * as ff from '../../skills/tiktok-video-remake/scripts/ff.ts';
 import { CONTINUE_DEFAULTS, MODELS, REQUIRED_NODES, SWAP_DEFAULTS, buildContinuation, continuationFrames, fillSwap, generatedArea, h3Length, tierCanvas, toPreparedPoint, type Graph } from '../../skills/tiktok-video-remake/scripts/graphs.ts';
 import { main, parseArgs, parsePoint, parseRect } from '../../skills/tiktok-video-remake/scripts/main.ts';
-import { checkId, descendants, invalidate, lockRun, parseSegments, staleContinuation, timelineGaps } from '../../skills/tiktok-video-remake/scripts/manifest.ts';
+import { checkId, descendants, invalidate, invalidateAll, lockRun, parseSegments, staleContinuation, timelineGaps } from '../../skills/tiktok-video-remake/scripts/manifest.ts';
 
 const ROOT = path.resolve(import.meta.dir, '..', '..');
 const fixture = (n: string): Graph => JSON.parse(readFileSync(path.join(ROOT, 'test', 'remake-graphs', `${n}.json`), 'utf8'));
@@ -479,7 +479,8 @@ describe('remake state: what a change invalidates', () => {
             { id: 'other', kind: 'swap', start: 5, duration: 1, attempts: [attempt(1, 'O')], placed: { file: 'r', sha256: 'R', fromAttempt: 1 }, approved: { at: 'x', sha256: 'R' } },
         ],
         timeline: { segments: [], file: 't', sha256: 'T', duration: 1 },
-        final: { file: 'f', sha256: 'F', duration: 1, at: 'x' },
+        audio: { mode: 'source', start: 0 },
+        final: { file: 'f', sha256: 'F', duration: 1, at: 'x', silent: { file: 'g', sha256: 'G' } },
     });
     test('a new attempt clears the shot, its continuation, the timeline and the final file, and nothing else', () => {
         const m = manifest();
@@ -493,6 +494,7 @@ describe('remake state: what a change invalidates', () => {
         expect(m.shots[2].approved).toBeDefined();
         expect(m.timeline).toBeUndefined();
         expect(m.final).toBeUndefined();
+        expect(m.audio).toBeUndefined();
     });
     test('placing again clears the approval and the downstream files, not the continuation', () => {
         const m = manifest();
@@ -501,6 +503,20 @@ describe('remake state: what a change invalidates', () => {
         expect(m.shots[0].placed).toBeDefined();
         expect(m.shots[1].placed).toBeDefined();
         expect(m.final).toBeUndefined();
+        expect(m.audio).toBeUndefined();
+    });
+    test('a shot made of parts is cleared when a part changes; a new photo or card clears every run', () => {
+        const m = manifest();
+        m.shots.push({ id: 'whole', kind: 'swap', parts: [{ shot: 'close' }, { source: [60, 90] }], attempts: [], placed: { file: 'w', sha256: 'W', fromAttempt: 0 }, approved: { at: 'x', sha256: 'W' } });
+        invalidate(m, 'close', 'placement');
+        expect(m.shots[3].placed).toBeUndefined();
+        expect(m.shots[3].approved).toBeUndefined();
+        expect(m.shots[2].approved).toBeDefined();
+        const all = manifest();
+        all.shots.push({ id: 'whole', kind: 'swap', parts: [{ shot: 'close' }], attempts: [], placed: { file: 'w', sha256: 'W', fromAttempt: 0 }, approved: { at: 'x', sha256: 'W' } });
+        invalidateAll(all);
+        expect(all.shots.every((s: any) => !s.placed && !s.approved)).toBe(true);
+        expect([all.timeline, all.audio, all.final]).toEqual([undefined, undefined, undefined]);
     });
     test('a continuation built on an older version of its shot is reported', () => {
         const m = manifest();

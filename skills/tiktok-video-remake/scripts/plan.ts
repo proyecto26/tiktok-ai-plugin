@@ -158,7 +158,8 @@ export function cropFor(boxes: number[][], frame: { width: number; height: numbe
     const tallest = Math.max(...bs.map((b) => b[3]));
     if (x2 - x1 > 0.6 * frame.width || tallest >= 0.35 * frame.height) return whole;
     const wanted = Math.max(2.5 * tallest, y2 - y1, ((x2 - x1) * 16) / 9);
-    const h = Math.ceil(wanted / 32) * 32;
+    // At least 128 high (72 wide): the model cannot work on less, and a crop must be 64 pixels or more on both sides.
+    const h = Math.max(128, Math.ceil(wanted / 32) * 32);
     const w = (h / 32) * 18;
     if (h > frame.height || w > frame.width) return whole;
     const x = Math.min(Math.max(Math.round((x1 + x2) / 2 - w / 2), 0), frame.width - w);
