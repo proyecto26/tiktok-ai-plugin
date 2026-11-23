@@ -28,6 +28,7 @@ export interface Report {
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n);
+const fixed2 = (n: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const pct = (n: number | null) => (n === null ? 'n/a' : `${n > 0 ? '+' : ''}${n}%`);
 const isUn = (x: any) => !!x && x.unavailable === true;
 
@@ -56,7 +57,7 @@ export function buildReport(input: ReportInput): Report {
         const v = a.metrics.views;
         if (!isUn(v)) {
             if (!isUn(v.change)) {
-                facts.push({ text: `Views: ${fmt(v.current.total)} in the current ${v.current.points}-day window vs ${fmt(v.previous.total)} in the previous one (${pct(v.change.pct)}).`, source: 'Studio analytics, vv_history' });
+                facts.push({ text: `Views: ${fmt(v.current.total)} over the last ${v.current.points} daily points vs ${fmt(v.previous.total)} over the ${v.previous.points} before (${pct(v.change.pct)}).`, source: 'Studio analytics, vv_history' });
                 if (v.change.pct !== null && v.change.pct <= -20) viewsFall = v.change.pct;
             } else facts.push({ text: `Views: ${fmt(v.current.total)} over ${v.current.points} days; no previous period in the capture.`, source: 'Studio analytics, vv_history' });
         }
@@ -102,8 +103,9 @@ export function buildReport(input: ReportInput): Report {
             if (elig.program.reason.startsWith('not offered')) actions.push('No change to make for Creator Rewards: TikTok does not list it for this account or region. Capture the monetization page again after the account or region changes.');
         } else if (elig.program.listed) facts.push({ text: `Creator Rewards program is listed as ${elig.program.list}; requirements met ${elig.program.requirements_met ?? 'n/a'} of ${elig.program.total_requirements ?? 'n/a'}.`, source: 'Studio monetization, all_programs' });
         const views = elig.criteria.find((c) => c.id === 'views_30d');
+        const offered = !(isUn(elig.program) && String(elig.program.reason).startsWith('not offered'));
         const fol = elig.criteria.find((c) => c.id === 'followers');
-        if (views?.status === 'not_met' && fol?.status === 'met' && typeof views.actual === 'number' && typeof views.required === 'number') {
+        if (offered && views?.status === 'not_met' && fol?.status === 'met' && typeof views.actual === 'number' && typeof views.required === 'number') {
             hyps.push({ text: `Views, not followers, are the blocker for Creator Rewards: ${fmt(views.actual)} of ${fmt(views.required)} views in 30 days (${Math.round((views.actual / views.required) * 100)}%).`, confidence: 'medium', basis: 'followers met, 30-day views short' });
             actions.push('In TikTok Studio, read the Creator Rewards requirements on the Monetization page and plan posts that raise 30-day views; re-run `eligibility` after the next capture.');
         }
@@ -126,7 +128,7 @@ export function buildReport(input: ReportInput): Report {
         ads = decide(input.csv, { targetCpa: input.targetCpa });
         const sum = ads.summary;
         const spend = ads.ads.reduce((x, y) => x + (y.spend ?? 0), 0);
-        facts.push({ text: `Ads Manager export: ${ads.ads.length} ads, spend ${ads.currency ?? ''}${fmt(spend)}; verdicts ${sum.scale} scale, ${sum.keep} keep, ${sum.kill} kill, ${sum.wait} wait, ${sum.unknown} unknown${ads.target_cpa ? ` against a target CPA of ${ads.target_cpa}` : ''}.`.replace(/ ,/g, ','), source: 'decide on the exported CSV' });
+        facts.push({ text: `Ads Manager export: ${ads.ads.length} ads, spend ${ads.currency ?? ''}${fixed2(spend)}; verdicts ${sum.scale} scale, ${sum.keep} keep, ${sum.kill} kill, ${sum.wait} wait, ${sum.unknown} unknown${ads.target_cpa ? ` against a target CPA of ${ads.target_cpa}` : ''}.`.replace(/ ,/g, ','), source: 'decide on the exported CSV' });
         const fat = ads.ads.filter((x) => x.verdict === 'kill' && x.reasons.some((r) => /frequency/.test(r)));
         const costly = ads.ads.filter((x) => x.verdict === 'kill' && !fat.includes(x));
         if (fat.length) hyps.push({ text: `${fat.map((x) => x.name).join(', ')} saturated their audience (frequency above ${ads.thresholds.frequency_critical}): the concept is spent, not the budget.`, confidence: 'medium', basis: 'frequency over the critical band' });
