@@ -33,11 +33,11 @@ npx -y bun skills/tiktok/scripts/main.ts <command> [options]
 ## Reading through your own Chrome
 
 TikTok answers plain HTTP page loads with a "Please wait" WAF page, and its list APIs need signatures that only
-its own page code makes. So reads happen in **your normal Chrome** (claude-in-chrome), where you are already
+its own page code makes. So reads happen in **your normal Chrome** (through a browser tool that can run JavaScript in the page), where you are already
 signed in:
 
 1. Open one tab on the profile or post. Wait for it to load.
-2. Run the text of `scripts/browser/capture.js` in the tab (javascript_tool). It installs a read-only hook that
+2. Run the text of `scripts/browser/capture.js` in the tab with that tool. It installs a read-only hook that
    copies the JSON answers the page fetches for itself, and returns a `tt.capture.v1` capture.
 3. To load more posts or comments, run `window.__ttCapture.more()` (one scroll, at most 10 per page), wait
    several seconds, and run the script again to collect.

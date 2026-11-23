@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://code.claude.com/docs/en/plugins)
 [![Agent Plugins](https://img.shields.io/badge/Agent_Plugins-1.0-orange)](https://agent-plugins.org/specification)
-[![Skills](https://img.shields.io/badge/Skills-5_of_8-brightgreen)](#-the-essentials-kit-features)
+[![Skills](https://img.shields.io/badge/Skills-8_of_8-brightgreen)](#-the-essentials-kit-features)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Bun-blue)](https://bun.sh)
 
 <img src="https://github.com/proyecto26/sherlock-ai-plugin/blob/main/images/claude-mascot-jumping-animated.svg" width="150">
@@ -17,7 +17,7 @@ ComfyUI, Homebrew and open-source packages running on your machine.
 Every write is a dry run until you approve the exact post. There are no like, follow or DM
 commands, by design.
 
-> **Status: phase 3.** Six of the eight skills are built: the `tiktok` operator (login, reads,
+> **Status: phase 5. All 8 of 8 skills are available:** the `tiktok` operator (login, reads,
 > publishing), Content, Audit, Research, Ads, Video Breakdown, Video Remake and Travel Studio. A private video and a
 > private photo carousel have been published end to end on a real account; non-private posts, the AI label and the
 > disclosure toggle still need `--experimental` until each has passed live. Hashtag and sound reads ran
@@ -214,6 +214,9 @@ skills/
   tiktok-audit/            account report from operator reads
   tiktok-research/         outliers, sounds, hashtags from captured pages
   tiktok-video-breakdown/  shots, cuts on the frame grid, transcript, script
+  tiktok-ads/              creator rewards, analytics, kill/keep/scale (read-only)
+  tiktok-video-remake/     person swap in a local ComfyUI
+  tiktok-travel-studio/    travel backlog into vertical cuts and drafts
 test/unit/                 offline bun tests (network trapped)
 scripts/check-manifests.sh host manifest consistency
 ```

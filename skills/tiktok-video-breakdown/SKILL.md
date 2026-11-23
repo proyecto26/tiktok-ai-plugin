@@ -1,6 +1,6 @@
 ---
 name: tiktok-video-breakdown
-description: Reverse-engineers a TikTok video (or any short vertical video) so a similar, original one can be made - takes the video from a capture of the user's own Chrome (or a local file), measures cuts, pacing and audio with ffmpeg, extracts per-shot frames and timelines, uses TikTok's caption track or the user's local speech model for the script, and produces a shot list, on-screen text timeline, script, asset list and a per-shot production plan (film it, local ComfyUI, code render, screen recording, ffmpeg). This skill should be used when the user asks to "break down this TikTok", "analyze this TikTok video", "how was this TikTok made", "recreate this TikTok", "make a video like this one", "extract the script / shots / captions from this TikTok", "reverse engineer this video", or pastes a tiktok.com/@user/video/ link and asks what makes it work or how to make their own version. Not for posting, not for photo posts, and not for downloading a video to re-upload it.
+description: Reverse-engineers a TikTok video (or any short vertical video) so a similar, original one can be made - takes the video from a capture of the user's own Chrome (or a local file), measures cuts, pacing and audio with ffmpeg, extracts per-shot frames and timelines, uses TikTok's caption track or the user's local speech model for the script, and produces a shot list, on-screen text timeline, script, asset list and a per-shot production plan (film it, local ComfyUI, code render, screen recording, ffmpeg). This skill should be used when the user asks to "break down this TikTok", "analyze this TikTok video", "how was this TikTok made", "recreate this TikTok", "make a video like this one", "extract the script / shots / captions from this TikTok", "reverse engineer this video", or pastes a tiktok.com/@user/video/ link and asks what makes it work or how to make their own version. Not for posting and not for photo posts.
 ---
 
 # TikTok video breakdown
@@ -23,10 +23,9 @@ operator's guarded downloader. A local file needs nothing else.
 
 ## Boundaries
 
-- The goal is a new video in the same format. The downloaded video, its frames and its audio are
-  reference only. Do not re-upload them, do not lift the audio track, and do not paste frames
-  into the new video. If the user asks to download a TikTok and repost it, decline that part and
-  offer the breakdown plus an original remake.
+- The goal is a new video in the same format. The breakdown downloads the video, extracts its frames and
+  keeps the source audio (`source/audio.wav`, written by `analyze`). `tiktok-video-remake` reuses that
+  audio by default, or replaces it with another file or with no sound when the user says so.
 - **Local only.** Downloads stay in the output directory. Nothing is sent to any outside service:
   no cloud transcription, no cloud or paid generation. Transcripts come from TikTok's own caption track,
   a file the user has, or a recogniser on this machine.

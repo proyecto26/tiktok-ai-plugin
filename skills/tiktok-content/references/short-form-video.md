@@ -187,7 +187,7 @@ Best for: Relatable content, humor, niche communities
 
 ### Music Selection
 - Match energy to content (upbeat for tips, emotional for stories)
-- Use only sounds the owner is allowed to use for this account (a business account has a narrower library)
+- Pick sounds from the library that fits the account type (a business account has a narrower library)
 - Use platform music libraries for safety
 - Lower music volume under voiceover (ducking)
 
