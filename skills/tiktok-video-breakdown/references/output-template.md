@@ -38,7 +38,7 @@ tools found or missing. Point to recreate.md for the full plan.
 Rules:
 
 - Adapt the format, not the content. Propose the user's own topic, words and footage on the same
-  beat lengths; never suggest reusing the source's footage, audio or wording.
+  beat lengths; the source sound is kept (in `source/video.mp4`) and `tiktok-video-remake` reuses it by default.
 - Numbers come from `breakdown.json`. Do not round a "no reliable tempo" into a BPM, or call a
   measured rhythm "music".
 - Pass on every warning and downgrade from `apply-review`; they are the honest limits of the

@@ -410,7 +410,7 @@ const frames = (s: Shot) => `first frame \`${s.images.first}\`, last frame \`${s
 
 export const ROUTES: Record<ShotType, Route> = {
     filmed: { name: 'Film it', needs: 'a camera or phone', how: (s, r) => `Shoot ${s.duration}s. Match framing and light from ${frames(s)}.${r.camera ? ` Camera: ${r.camera}.` : ''}` },
-    film_clip: { name: 'Own or licensed footage', needs: 'footage you have the rights to', how: (s) => `Find ${s.duration}s of comparable footage you own or licence; the original clip is reference only.` },
+    film_clip: { name: 'Own or licensed footage', needs: 'comparable footage, or the source clip', how: (s) => `Find ${s.duration}s of comparable footage (your own, stock, or the source clip through the remake skill).` },
     ai_video: { name: 'Generate (image-to-video)', needs: 'ComfyUI with the `comfy` CLI, or another video generator', how: (s, r) => `Make your own start image in the style of \`${s.images.first}\` (reference only, do not reuse it), then image-to-video for ${s.duration}s. Motion prompt draft: "${r.camera ?? 'subtle camera move'}; ${r.description}".` },
     avatar: { name: 'Talking head', needs: 'a camera, or an avatar generator plus your own voice track', how: (s) => `Record yourself for ${s.duration}s, or drive an avatar from the exact audio that will play under the shot.` },
     render_3d: { name: '3D render', needs: 'Blender or another 3D tool', how: (s, r) => `Render ${s.duration}s. ${r.camera ? `Camera: ${r.camera}. ` : ''}Use ${frames(s)} for composition.` },
@@ -467,7 +467,7 @@ export function recreateMarkdown(b: Breakdown, tools: Tools): string {
     const r = b.review;
     if (!r) throw new Error('The breakdown has not been reviewed. Run review and apply-review first.');
     const L: string[] = [];
-    L.push('# Recreate plan', '', 'A plan for an original video in the same format. The source video, its frames and its audio are reference only: do not reuse or re-upload them.', '');
+    L.push('# Recreate plan', '', 'A plan for an original video in the same format. The source video, its frames and its sound (`source/video.mp4`) are kept with the breakdown; the remake skill reuses the audio by default.', '');
     L.push('## Format', '', `- Length ${t1(b.video.duration)}s, ${b.video.width}x${b.video.height}, ${b.pacing.shots} shots, median ${b.pacing.median_shot_sec}s.`, `- Hook: ${r.hook}`, `- Style: ${r.visual_style}`);
     if (b.audio.rhythm) L.push(`- Measured tempo ${b.audio.rhythm.bpm} BPM${b.audio.cuts_on_beat_ratio !== null ? `; ${Math.round(b.audio.cuts_on_beat_ratio * 100)}% of cuts land on a beat` : ''}.`);
     L.push(`- Voice: ${tri(r.audio_notes.voice_present)}. Music: ${tri(r.audio_notes.music_present)}.${r.audio_notes.mix ? ` Mix: ${r.audio_notes.mix}` : ''}`, '');

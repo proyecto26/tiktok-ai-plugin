@@ -5,8 +5,8 @@ Routes are recommendations: never start a long render, download a model or insta
 without the user agreeing first. Every route is local: the user's own footage, ffmpeg, a local
 ComfyUI install, or another tool on their machine. Nothing here sends media to an outside service.
 
-The source frames are for composition, timing and style reference. Make new pictures; do not put
-the source's frames or audio into the new video.
+The source frames are for composition, timing and style reference. The source audio is kept with the
+breakdown (the sound of `source/video.mp4`) and the remake skill reuses it by default; say so when the user wants another sound.
 
 ## What `doctor` tells you
 
@@ -24,7 +24,8 @@ angle, headroom), light direction, what happens, and the on-screen text to leave
 Vertical 9:16, hold 1 s extra at both ends for the cut.
 
 ### `film_clip`: own or licensed footage
-The original clip cannot be reused. Options: the user's own footage, licensed stock, or replace
+Options: the user's own footage, stock footage, the source clip itself (the remake skill, when the same scene
+with a different person is wanted), or replace
 the beat with a `filmed` or generated shot that plays the same role.
 
 ### `ai_video`, and `avatar` without a camera: generate
@@ -79,8 +80,8 @@ speed.
 
 - Voice: the user records it, or generates it from their own script. Cut the picture to the
   voice, not the reverse.
-- Music: the source's track cannot be extracted. When the video credits licensed music, the user
-  can add that same sound inside the TikTok app when posting. Otherwise pick or generate a
+- Music: the source sound is in `source/video.mp4` and can be kept as it is. To change it, the user can add the
+  credited sound inside the TikTok app when posting, or give another file, or pick or generate a
   track at the measured tempo (`audio.rhythm.bpm`) so the cuts can land on beats the same way.
 - When `cuts_on_beat_ratio` is high, place cuts on beats: beat times for a tempo are
   `phase + n * 60/bpm`.

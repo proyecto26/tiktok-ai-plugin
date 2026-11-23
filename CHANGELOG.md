@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- docs: README and every manifest now say all 8 skills are available (no "planned" wording); skill text is
+  client-neutral (no tool names of one client); the breakdown keeps the source audio and the remake reuses it by
+  default (or another file, or none); no skill asks for consent or rights; `test/unit/skill-text.test.ts` guards this.
 - tiktok-ads: new read-only skill. `eligibility` (Creator Rewards criteria: followers, 30-day views from
   Studio `vv_history`, age and region unknown unless stated; `unavailable: not offered to this account or region`
   when no program list names it), `analytics` (current vs previous period, traffic sources, search terms,
