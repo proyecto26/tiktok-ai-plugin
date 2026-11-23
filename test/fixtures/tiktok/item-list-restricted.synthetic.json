@@ -1,0 +1,62 @@
+{
+  "statusCode": 0,
+  "hasMore": false,
+  "cursor": "2",
+  "itemList": [
+    {
+      "id": "7000000000000000101",
+      "desc": "SYNTH: restricted post with a play address",
+      "createTime": 1700000000,
+      "stats": { "playCount": 100, "diggCount": 10, "commentCount": 2, "shareCount": 1, "collectCount": 3 },
+      "video": { "duration": 9, "width": 720, "height": 1280, "playAddr": "https://v16-webapp.tiktokcdn.com/a/play.mp4", "downloadAddr": "" },
+      "music": { "title": "original sound", "id": "555", "authorName": "synthetic_artist", "original": true },
+      "author": { "uniqueId": "synthetic_a" },
+      "isAd": false,
+      "maskType": 3,
+      "contentLevel": 4,
+      "maskInfo": { "maskType": 3, "title": "SYNTH: sensitive content" },
+      "warnInfo": [{ "text": "SYNTH: warning", "type": 1 }],
+      "itemControl": { "can_repost": false },
+      "stitchEnabled": false,
+      "privateItem": false,
+      "isContentClassified": true,
+      "contentClassified": true
+    },
+    {
+      "id": "7000000000000000102",
+      "desc": "SYNTH: restricted post with the play address only under alternative fields",
+      "createTime": 1700000100,
+      "stats": { "playCount": 50, "diggCount": 5, "commentCount": 1, "shareCount": 0 },
+      "video": {
+        "duration": 12,
+        "width": 576,
+        "height": 1024,
+        "playAddr": "",
+        "downloadAddr": "",
+        "PlayAddrStruct": { "UrlList": ["https://v19.tiktokcdn.com/b/struct.mp4"] },
+        "bitrateInfo": [
+          { "PlayAddr": { "UrlList": [] } },
+          { "PlayAddr": { "UrlList": ["https://v16-webapp.tiktokcdn.com/c/rate2.mp4"] } },
+          { "PlayAddr": { "UrlList": ["https://v16-webapp.tiktokcdn.com/c/rate3.mp4"] } },
+          { "PlayAddr": { "UrlList": ["https://v16-webapp.tiktokcdn.com/c/rate4.mp4"] } }
+        ]
+      },
+      "author": { "uniqueId": "synthetic_a" },
+      "isAd": true,
+      "maskType": 6,
+      "contentLevel": 5,
+      "maskInfo": { "maskType": 6 },
+      "isContentClassified": true
+    },
+    {
+      "id": "7000000000000000103",
+      "desc": "SYNTH: restricted post whose capture carries no play address at all",
+      "createTime": 1700000200,
+      "stats": { "playCount": 5, "diggCount": 1, "commentCount": 0, "shareCount": 0 },
+      "video": { "duration": 7, "width": 576, "height": 1024, "playAddr": "" },
+      "author": { "uniqueId": "synthetic_a" },
+      "maskType": 6,
+      "contentLevel": 5
+    }
+  ]
+}

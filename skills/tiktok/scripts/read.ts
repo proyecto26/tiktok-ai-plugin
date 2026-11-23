@@ -318,9 +318,20 @@ export function mediaFromCapture(c: Capture, id: string): ReadResult<TtMedia> {
         const s = str(u);
         if (s && !urls.includes(s)) urls.push(s);
     };
-    add(v.playAddr);
-    add(v.downloadAddr);
-    for (const b of Array.isArray(v.bitrateInfo) ? v.bitrateInfo : []) for (const u of Array.isArray(obj(obj(b).PlayAddr).UrlList) ? (obj(obj(b).PlayAddr).UrlList as unknown[]) : []) add(u);
+    // The address can be a string, or an object with a UrlList; an item TikTok flags as sensitive or age-restricted
+    // often has an empty playAddr and carries the links under PlayAddrStruct or bitrateInfo instead.
+    const addAddr = (a: unknown) => {
+        if (typeof a === 'string') return add(a);
+        const list = obj(a).UrlList;
+        for (const u of Array.isArray(list) ? list : []) add(u);
+    };
+    addAddr(v.playAddr);
+    addAddr(v.PlayAddrStruct);
+    addAddr(v.playAddrStruct);
+    addAddr(v.downloadAddr);
+    addAddr(v.DownloadAddrStruct);
+    addAddr(v.downloadAddrStruct);
+    for (const b of Array.isArray(v.bitrateInfo) ? v.bitrateInfo : []) addAddr(obj(b).PlayAddr);
     const captions = (Array.isArray(v.subtitleInfos) ? v.subtitleInfos : [])
         .map(obj)
         .filter((x) => str(x.Url))

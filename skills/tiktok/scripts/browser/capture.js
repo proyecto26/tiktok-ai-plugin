@@ -162,13 +162,18 @@
             },
         };
     };
+    // A play address is a string, or an object whose UrlList is kept (nothing else of it).
+    const addr = (a) => (typeof a === 'string' ? a : a && typeof a === 'object' && Array.isArray(a.UrlList) ? { UrlList: a.UrlList.filter((u) => typeof u === 'string').slice(0, 6) } : undefined);
     const video = (v) => (!v || typeof v !== 'object' ? {} : {
         duration: v.duration,
         width: v.width,
         height: v.height,
-        playAddr: v.playAddr,
-        downloadAddr: v.downloadAddr,
-        bitrateInfo: Array.isArray(v.bitrateInfo) ? v.bitrateInfo.slice(0, 3).map((b) => ({ PlayAddr: { UrlList: b && b.PlayAddr && b.PlayAddr.UrlList } })) : undefined,
+        playAddr: addr(v.playAddr),
+        downloadAddr: addr(v.downloadAddr),
+        // Items TikTok flags as sensitive or age-restricted often keep their links only here.
+        PlayAddrStruct: addr(v.PlayAddrStruct || v.playAddrStruct),
+        DownloadAddrStruct: addr(v.DownloadAddrStruct || v.downloadAddrStruct),
+        bitrateInfo: Array.isArray(v.bitrateInfo) ? v.bitrateInfo.map((b) => ({ PlayAddr: addr(b && b.PlayAddr) })).filter((b) => b.PlayAddr && (typeof b.PlayAddr === 'string' || b.PlayAddr.UrlList.length)).slice(0, 3) : undefined,
         subtitleInfos: Array.isArray(v.subtitleInfos) ? v.subtitleInfos.map((x) => ({ LanguageCodeName: x.LanguageCodeName, Url: x.Url, Format: x.Format, Source: x.Source })) : undefined,
     });
     const music = (m) => (!m || typeof m !== 'object' ? {} : { title: m.title, id: m.id, authorName: m.authorName, original: m.original });

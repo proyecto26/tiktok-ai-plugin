@@ -24,7 +24,7 @@ async function clearDerived(outDir: string): Promise<void> {
 export type { Meta } from './source.ts';
 
 export class FetchError extends Error {
-    constructor(readonly kind: 'photo_post' | 'not_found' | 'no_fetchable_url' | 'challenge' | 'rate_limited' | 'operator_missing' | 'bad_capture', message: string) {
+    constructor(readonly kind: 'photo_post' | 'not_found' | 'no_fetchable_url' | 'no_play_url' | 'challenge' | 'rate_limited' | 'operator_missing' | 'bad_capture', message: string) {
         super(message);
         this.name = 'FetchError';
     }
@@ -77,6 +77,11 @@ export async function fetchFromCapture(capture: string, id: string, outDir: stri
     if (post.isPhoto) throw new FetchError('photo_post', `Post ${id} is a photo post (${post.imageCount ?? '?'} images); only videos are analysed.`);
     const media = r.mediaFromCapture(cap, id).data;
 
+    // Nothing to download: the capture holds no video link for this post. The post is not refused (a post flagged
+    // sensitive or age-restricted is fetched like any other); the page showed no link, so say how to get one.
+    if (!media.playUrls.length) {
+        throw new FetchError('no_play_url', `The capture has no video link for post ${id} (the page did not load its video data). Open the post itself in the signed-in browser, let it start playing, capture again, or save the video yourself and run fetch --file <video.mp4>.`);
+    }
     const src = path.join(outDir, 'source');
     await mkdir(src, { recursive: true });
     await clearDerived(outDir);

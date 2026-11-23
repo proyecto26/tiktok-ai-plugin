@@ -61,7 +61,9 @@ npx -y bun scripts/main.ts fetch --file <video.mp4> -o <dir>
 The post id is the digits after `/video/` in the link. Use a new directory per video, in the user's
 project (not a temp dir). The links in a capture expire: if every one is gone, `fetch` answers
 `no_fetchable_url`; capture the page again, or have the user save the video themselves and use
-`fetch --file`. When TikTok has a caption track for the post it is saved as
+`fetch --file`. A post TikTok marks sensitive or age-restricted is fetched like any other. If its capture
+holds no video link at all, `fetch` answers `no_play_url`: open the post itself in the signed-in browser, let it
+start, and capture again. When TikTok has a caption track for the post it is saved as
 `source/captions.<lang>.vtt`.
 
 ### 3. Analyze
