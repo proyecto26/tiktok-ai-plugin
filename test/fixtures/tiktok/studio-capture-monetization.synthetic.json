@@ -1,0 +1,163 @@
+{
+ "schema": "tt.studio-capture.v1",
+ "url": "https://www.tiktok.com/tiktokstudio/monetization",
+ "capturedAt": "2026-11-22T12:05:00.000Z",
+ "responses": [
+  {
+   "path": "/tiktok/v1/creator/m10n_center/settings",
+   "route": "/tiktokstudio/monetization",
+   "body": {
+    "status_code": 0,
+    "all_currencies": [
+     {
+      "code": "USD",
+      "display_name": "US Dollar",
+      "symbol": "$"
+     },
+     {
+      "code": "EUR",
+      "display_name": "Euro",
+      "symbol": "€"
+     }
+    ],
+    "selected_currency": {
+     "code": "USD"
+    },
+    "show_creator_spotlight": false
+   }
+  },
+  {
+   "path": "/tiktok/v1/creator/m10n_center/all_programs",
+   "route": "/tiktokstudio/monetization",
+   "body": {
+    "status_code": 0,
+    "active_m10n_programs": [
+     {
+      "name": "SYNTH LIVE rewards",
+      "description": "SYNTH: SYNTH LIVE rewards description",
+      "m10n_project": 118,
+      "requirements_met": 3,
+      "total_requirements": 3,
+      "access_restriction_info": {
+       "is_access_restricted": false
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     }
+    ],
+    "eligible_to_apply_m10n_programs": [
+     {
+      "name": "SYNTH Artists program",
+      "description": "SYNTH: SYNTH Artists program description",
+      "m10n_project": 121,
+      "requirements_met": 2,
+      "total_requirements": 2,
+      "access_restriction_info": {
+       "is_access_restricted": false
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      },
+      "m10n_badge": [
+       {
+        "badge_label": "New"
+       }
+      ]
+     },
+     {
+      "name": "SYNTH Incentive program",
+      "description": "SYNTH: SYNTH Incentive program description",
+      "m10n_project": 123,
+      "requirements_met": 4,
+      "total_requirements": 4,
+      "access_restriction_info": {
+       "is_access_restricted": false
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     },
+     {
+      "name": "SYNTH Service plus",
+      "description": "SYNTH: SYNTH Service plus description",
+      "m10n_project": 118,
+      "requirements_met": 1,
+      "total_requirements": 1,
+      "access_restriction_info": {
+       "is_access_restricted": true
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     }
+    ],
+    "ineligible_to_apply_m10n_programs": [
+     {
+      "name": "SYNTH Video gifts",
+      "description": "SYNTH: SYNTH Video gifts description",
+      "m10n_project": 117,
+      "requirements_met": 1,
+      "total_requirements": 3,
+      "access_restriction_info": {
+       "is_access_restricted": false
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     },
+     {
+      "name": "SYNTH Subscription",
+      "description": "SYNTH: SYNTH Subscription description",
+      "m10n_project": 118,
+      "requirements_met": 0,
+      "total_requirements": 4,
+      "access_restriction_info": {
+       "is_access_restricted": true
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     },
+     {
+      "name": "SYNTH Marketplace",
+      "description": "SYNTH: SYNTH Marketplace description",
+      "m10n_project": 117,
+      "requirements_met": 2,
+      "total_requirements": 5,
+      "access_restriction_info": {
+       "is_access_restricted": false
+      },
+      "program_cta_text": "Learn more",
+      "show_red_dot": false,
+      "web_page_info": {
+       "button_text": "Open",
+       "status": 1
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "dropped": 0,
+ "rateLimited": false,
+ "challenge": false
+}
