@@ -156,7 +156,7 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
     const currency = col.spend !== undefined ? body.map((r) => currencyOf(r[col.spend as number] ?? '')).find(Boolean) ?? null : null;
 
     // One entry per ad: rows with the same name (a daily breakdown) are added together.
-    interface Acc { name: string; rows: number; given: Partial<Record<Metric, number | null>>; sums: Record<'spend' | 'impressions' | 'clicks' | 'conversions', number | null>; freqW: number; freqN: number }
+    interface Acc { name: string; rows: number; given: Partial<Record<Metric, number | null>>; sums: Record<'spend' | 'impressions' | 'clicks' | 'conversions', number | null>; freqW: number; freqN: number; miss: Record<'spend' | 'conversions', number> }
     const order: string[] = [];
     const byName = new Map<string, Acc>();
     let skipped = 0;
@@ -168,7 +168,7 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
         }
         let a = byName.get(name);
         if (!a) {
-            a = { name, rows: 0, given: {}, sums: { spend: null, impressions: null, clicks: null, conversions: null }, freqW: 0, freqN: 0 };
+            a = { name, rows: 0, given: {}, sums: { spend: null, impressions: null, clicks: null, conversions: null }, freqW: 0, freqN: 0, miss: { spend: 0, conversions: 0 } };
             byName.set(name, a);
             order.push(name);
         }
@@ -177,6 +177,7 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
         for (const m of ['spend', 'impressions', 'clicks', 'conversions'] as const) {
             const v = val(m);
             if (v !== null) a.sums[m] = (a.sums[m] ?? 0) + v;
+            else if ((m === 'spend' || m === 'conversions') && col[m] !== undefined) a.miss[m]++;
         }
         for (const m of ['ctr', 'cpm', 'cpa', 'frequency'] as const) a.given[m] = val(m);
         const f = val('frequency');
@@ -192,6 +193,10 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
         const a = byName.get(n) as Acc;
         const derived: string[] = [];
         const { spend, impressions, clicks, conversions } = a.sums;
+        // Some rows of an ad lack spend or conversions while the column exists: the sums cover different rows, so no ratio of them is honest.
+        const partial = (m: 'spend' | 'conversions') => a.miss[m] > 0 && a.miss[m] < a.rows;
+        const partialSpend = partial('spend');
+        const partialConv = partial('conversions');
         const pick = (m: 'ctr' | 'cpm' | 'cpa', calc: number | null): number | null => {
             const given = a.rows === 1 ? a.given[m] ?? null : null;
             if (given !== null) return r2(given);
@@ -200,11 +205,21 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
             return r2(calc);
         };
         const ctr = pick('ctr', clicks !== null && impressions ? (clicks / impressions) * 100 : null);
-        const cpm = pick('cpm', spend !== null && impressions ? (spend / impressions) * 1000 : null);
-        const cpa = pick('cpa', spend !== null && conversions ? spend / conversions : null);
+        const cpm = pick('cpm', !partialSpend && spend !== null && impressions ? (spend / impressions) * 1000 : null);
+        const cpa = pick('cpa', !partialSpend && !partialConv && spend !== null && conversions ? spend / conversions : null);
         const frequency = a.rows === 1 ? a.given.frequency ?? null : a.freqN ? r2(a.freqW / a.freqN) : null;
         const ad: AdResult = { name: n, rows: a.rows, spend: spend === null ? null : r2(spend), impressions, clicks, ctr, cpm, conversions, cpa, frequency, verdict: 'unknown', reasons: [], flags: [], missing: [], derived };
         for (const m of METRICS) if ((ad as any)[m] === null) ad.missing.push(m);
+        if (partialSpend) {
+            ad.flags.push('partial_spend');
+            if (!ad.missing.includes('spend')) ad.missing.push('spend');
+            ad.reasons.push(`spend is missing on ${a.miss.spend} of ${a.rows} rows: cost per conversion cannot be judged`);
+        }
+        if (partialConv) {
+            ad.flags.push('partial_conversions');
+            if (!ad.missing.includes('conversions')) ad.missing.push('conversions');
+            ad.reasons.push(`conversions is missing on ${a.miss.conversions} of ${a.rows} rows: cost per conversion cannot be judged`);
+        }
         return ad;
     });
 
@@ -214,9 +229,11 @@ export function decide(csvText: string, opts: { targetCpa?: number }): DecideRes
 
     for (const ad of ads) {
         const why = (s: string) => ad.reasons.push(s);
+        const partialRows = ad.flags.includes('partial_spend') || ad.flags.includes('partial_conversions');
         if (ad.frequency !== null && ad.frequency > th.frequency_warning && ad.frequency <= th.frequency_critical) ad.flags.push('fatigue_warning');
         if (ad.ctr !== null && ad.ctr < th.ctr_floor_pct) ad.flags.push('ctr_below_floor');
         if (medianCpm !== null && ad.cpm !== null && ad.cpm > th.cpm_high_multiple * medianCpm) ad.flags.push('cpm_high');
+        if (partialRows) continue; // verdict stays unknown; the reasons were written with the flags
         if (ad.spend === null) {
             ad.verdict = 'unknown';
             why('no spend column: nothing to judge cost against');

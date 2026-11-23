@@ -132,3 +132,17 @@ describe('capture.js projection of flagged items', () => {
         expect(mediaFromCapture(parseCapture(text), ID_PLAIN).data.playUrls).toEqual(['https://v16-webapp.tiktokcdn.com/a/play.mp4']);
     });
 });
+
+describe('one post in several capture entries', () => {
+    const URL = 'https://v16-webapp.tiktokcdn.com/d/detail.mp4';
+    const cap = (scope: Record<string, unknown>, listItem: unknown) => parseCapture(JSON.stringify({ schema: 'tt.capture.v1', url: 'https://www.tiktok.com/@synthetic_a', capturedAt: '2026-11-17T00:00:00Z', scope, responses: [{ path: '/api/post/item_list/', route: '@synthetic_a', reqCursor: '0', body: { statusCode: 0, itemList: [listItem] } }], scrolls: 0, dropped: 0 }));
+    const detail = { itemInfo: { itemStruct: { id: '7', video: { PlayAddrStruct: { UrlList: [URL] } } } } };
+    test('an empty list item in front of the detail entry does not hide the play URL', () => {
+        const c = cap({ 'webapp.video-detail': detail }, { id: '7', video: { playAddr: '' } });
+        expect(mediaFromCapture(c, '7').data.playUrls).toEqual([URL]);
+    });
+    test('detail URLs come first, list URLs follow without duplicates', () => {
+        const c = cap({ 'webapp.video-detail': detail }, { id: '7', video: { playAddr: 'https://v16-webapp.tiktokcdn.com/d/list.mp4' } });
+        expect(mediaFromCapture(c, '7').data.playUrls).toEqual([URL, 'https://v16-webapp.tiktokcdn.com/d/list.mp4']);
+    });
+});
