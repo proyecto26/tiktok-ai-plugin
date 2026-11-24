@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { SWAP_DEFAULTS } from './graphs.ts';
 import type { Rect } from './graphs.ts';
 import { SCHEMA } from './manifest.ts';
-import { MIN_HALF_FRAMES, frameTime, timeFrame, type Stretch } from './stretch.ts';
+import { MIN_FREE_HALF_FRAMES, MIN_HALF_FRAMES, frameTime, timeFrame, type Stretch } from './stretch.ts';
 
 /** The plan's schema name follows the manifest's (`<prefix>.remake.v1` -> `<prefix>.remake.plan.v1`), so this file is the same in both plugins. */
 export const PLAN_SCHEMA = SCHEMA.replace(/\.v1$/, '.plan.v1');
@@ -85,11 +85,17 @@ const inside = (x: number, y: number, f: { width: number; height: number }) => x
 const pointOk = (p: unknown, f: { width: number; height: number }): p is [number, number] => Array.isArray(p) && p.length === 2 && p.every(num) && inside(p[0], p[1], f);
 const boxOk = (b: unknown, f: { width: number; height: number }): b is Box => Array.isArray(b) && b.length === 4 && b.every(num) && b[2] > 0 && b[3] > 0 && b[0] >= 0 && b[1] >= 0 && b[0] + b[2] <= f.width && b[1] + b[3] <= f.height;
 
-/** Where a split at time `t` falls, in frames, or why it cannot. */
-export function splitFrame(t: number, s: Stretch, fps: number): { frame: number } | { error: string } {
+/**
+ * Where a split at time `t` falls, in frames, or why it cannot. `all` is every stretch of the source: a half that
+ * borders a neighbouring stretch of the same shot (and so its 8-frame overlap) needs MIN_HALF_FRAMES; a half at the
+ * free end of the shot needs only MIN_FREE_HALF_FRAMES.
+ */
+export function splitFrame(t: number, s: Stretch, fps: number, all: Stretch[] = []): { frame: number } | { error: string } {
     const frame = timeFrame(t, fps);
     if (!(frame >= s.first && frame < s.end)) return { error: `seed.t ${t} s is not inside the stretch (${frameTime(s.first, fps).toFixed(3)}-${frameTime(s.end, fps).toFixed(3)} s)` };
-    if (frame < s.first + MIN_HALF_FRAMES - 1 || frame > s.end - MIN_HALF_FRAMES) return { error: `seed.t ${t} s is too close to an end of the stretch (each half needs at least ${MIN_HALF_FRAMES} frames): use "first" or "last"` };
+    const minBefore = all.some((x) => x.scene === s.scene && x.first < s.first) ? MIN_HALF_FRAMES : MIN_FREE_HALF_FRAMES;
+    const minAfter = all.some((x) => x.scene === s.scene && x.first > s.first) ? MIN_HALF_FRAMES : MIN_FREE_HALF_FRAMES;
+    if (frame - s.first + 1 < minBefore || s.end - frame < minAfter) return { error: `seed.t ${t} s is too close to an end of the stretch (the half before it needs at least ${minBefore} frames and the half after it ${minAfter}): use "first" or "last"` };
     return { frame };
 }
 
@@ -131,7 +137,7 @@ export function validateTargets(targets: unknown, stretches: Stretch[], frame: {
         if (seed === 'first' || seed === 'last') {
             if (!pointOk(e.point, frame)) errors.push(`${s.id}: point [x, y] is required, in source pixels (0-${frame.width - 1} by 0-${frame.height - 1}) on the ${seed} frame.`);
         } else if (seed && typeof seed === 'object' && num(seed.t)) {
-            const sp = splitFrame(seed.t, s, fps);
+            const sp = splitFrame(seed.t, s, fps, stretches);
             if ('error' in sp) errors.push(`${s.id}: ${sp.error}.`);
             if (!pointOk(seed.point, frame)) errors.push(`${s.id}: seed.point [x, y] is required, in source pixels on the frame at seed.t.`);
             if (seed.box !== undefined && !boxOk(seed.box, frame)) errors.push(`${s.id}: seed.box must be [x, y, w, h] inside the frame.`);
@@ -239,11 +245,11 @@ export function buildPlan(o: { stretches: Stretch[]; targets: Targets; frame: { 
         const e = o.targets.stretches[s.id];
         if (!e) throw new Error(`${s.id} has no answer in targets.json.`);
         const base = { scene: s.scene, stretch: s.id };
+        const target_sha256 = targetHash(o.targets.subject, e);
         if (!e.present) {
-            units.push({ id: s.id, ...base, action: 'keep', first: s.first, end: s.end });
+            units.push({ id: s.id, ...base, action: 'keep', first: s.first, end: s.end, target_sha256 });
             continue;
         }
-        const target_sha256 = targetHash(o.targets.subject, e);
         const prompt = promptFor({ subject: o.targets.subject, card: o.card, target: e });
         const swap = (id: string, first: number, end: number, seedFrame: number, point: [number, number], reverse: boolean, boxes: Array<Box | undefined>): PlanUnit => {
             let c = cropFor(boxes.filter((b): b is Box => Boolean(b)), o.frame);
@@ -255,7 +261,7 @@ export function buildPlan(o: { stretches: Stretch[]; targets: Targets; frame: { 
         if (seed === 'first') units.push(swap(s.id, s.first, s.end, s.first, e.point!, false, [e.box_first, e.box_last]));
         else if (seed === 'last') units.push(swap(s.id, s.first, s.end, s.end - 1, e.point!, true, [e.box_first, e.box_last]));
         else {
-            const sp = splitFrame(seed.t, s, o.fps);
+            const sp = splitFrame(seed.t, s, o.fps, o.stretches);
             if ('error' in sp) throw new Error(`${s.id}: ${sp.error}.`);
             const T = sp.frame;
             // [first, T] runs backwards from the seed frame T; [T, end) forwards from it. Frame T is in both and
@@ -329,6 +335,8 @@ export function validatePlan(plan: unknown, stretches: Stretch[], frame: { width
         if (!pointOk(u.point, frame)) errors.push(`${id}: point must be [x, y] inside the ${frame.width}x${frame.height} frame.`);
         if (typeof u.reverse !== 'boolean') errors.push(`${id}: reverse must be true or false.`);
         if (u.seed_frame !== undefined && !(u.seed_frame >= u.first && u.seed_frame < u.end)) errors.push(`${id}: seed_frame must be inside the run.`);
+        // The model starts from the seed frame, and the run is played towards the other end: a reversed run starts from its last frame.
+        else if (u.seed_frame !== undefined && typeof u.reverse === 'boolean' && u.seed_frame !== (u.reverse ? u.end - 1 : u.first)) errors.push(`${id}: seed_frame ${u.seed_frame} does not match reverse: ${u.reverse ? `a reversed run starts from its last frame (${u.end - 1})` : `a forward run starts from its first frame (${u.first})`}.`);
         if (u.crop) {
             const c = u.crop;
             const okInts = [c.x, c.y, c.w, c.h].every((n) => Number.isInteger(n) && n >= 0);

@@ -105,7 +105,7 @@ export interface Manifest {
     character?: string;
     shots: Shot[];
     timeline?: { segments: Array<{ source: [number, number] } | { shot: string }>; file: string; sha256: string; duration: number; draft?: boolean };
-    audio?: { mode: 'source' | 'file' | 'none'; file?: string; sha256?: string; start: number; match?: Record<string, unknown>; measuredStart?: number | null; sound?: { musicId: string | null; title: string | null; artist: string | null } };
+    audio?: { mode: 'source' | 'file' | 'none'; file?: string; sha256?: string; start: number; note?: string; match?: Record<string, unknown>; measuredStart?: number | null; sound?: { musicId: string | null; title: string | null; artist: string | null } };
     /** final.mp4 (with the chosen sound) and final_silent.mp4, both exported to the 1080x1920 canvas. */
     final?: { file: string; sha256: string; duration: number; at: string; draft?: boolean; silent?: { file: string; sha256: string }; canvas?: 'fit' | 'cover' };
 }
@@ -282,6 +282,13 @@ export function staleContinuation(m: Manifest, s: Shot, seen: string[] = []): st
     const prev = m.shots.find((x) => x.id === s.after);
     if (!prev) return `the shot it continues ("${s.after}") no longer exists`;
     const a = chosen(s);
+    if (prev.parts) {
+        // A joined shot has no attempts of its own: a continuation is built on the file it was placed as.
+        if (!prev.placed) return `shot "${prev.id}" is not placed any more`;
+        if (a.settings.afterSha256 !== prev.placed.sha256) return `it continues an earlier placement of shot "${prev.id}", not the one now placed`;
+        const upParts = staleContinuation(m, prev, [...seen, s.id]);
+        return upParts ? `shot "${prev.id}", which it continues, is out of date (${upParts})` : null;
+    }
     let prevAttempt: Attempt;
     try {
         prevAttempt = chosen(prev);

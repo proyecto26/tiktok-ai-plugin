@@ -188,6 +188,73 @@ describe.skipIf(!have)('remake from a plan: identity, targets, plan, run', () =>
         expect(M().shots.find((s: any) => s.id === 's2').approved).toBeDefined();
     }, 120_000);
 
+    // The next tests change a file, look at what the commands do, and put the file back: the flow goes on from the same state.
+    const keepFiles = (names: string[]) => {
+        const saved = names.map((n) => [n, readFileSync(path.join(run, n), 'utf8')] as const);
+        return () => saved.forEach(([n, text]) => writeFileSync(path.join(run, n), text));
+    };
+
+    test('a kept stretch whose target changed is out of date: its joined shot, the timeline and the finals are cleared, and run refuses', async () => {
+        const restore = keepFiles(['remake.json', 'targets.json']);
+        try {
+            expect(M().shots.find((s: any) => s.id === 's2').placed).toBeDefined();
+            expect(M().timeline).toBeDefined();
+            expect(plan().units.find((u: any) => u.id === 's2_2').target_sha256).toBeDefined();
+            const t = read(path.join(run, 'targets.json'));
+            t.stretches.s2_2.absent_note = 'looked again';
+            write(path.join(run, 'targets.json'), t);
+            await main(['targets', run, '--check', '--json']);
+            expect(M().shots.find((s: any) => s.id === 's2').placed).toBeUndefined();
+            expect(M().timeline).toBeUndefined();
+            const before = { ...count() };
+            await expect(main(['run', run, ...COMFY, '--resume', '--json'])).rejects.toThrow(/targets changed after these runs were planned: s2_2/);
+            expect(since(before)).toEqual([]);
+        } finally {
+            restore();
+        }
+    }, 120_000);
+
+    test('a stretch whose subject appeared after the plan was made keeps its old shot out: run refuses and names it', async () => {
+        const restore = keepFiles(['remake.json', 'targets.json']);
+        try {
+            const t = read(path.join(run, 'targets.json'));
+            t.stretches.s4 = { present: true, seen_at: [16], seed: 'first', point: [90, 160], box_first: box, box_last: box, others: [], ...shotCard };
+            write(path.join(run, 'targets.json'), t);
+            const before = { ...count() };
+            const e: Error = await main(['run', run, ...COMFY, '--resume', '--json']).catch((x) => x);
+            expect(e.message).toMatch(/disagree about whether the person is in s4.*Run plan .*again/);
+            expect(since(before)).toEqual([]);
+            expect(M().timeline).toBeUndefined();
+        } finally {
+            restore();
+        }
+    }, 120_000);
+
+    test('an identity_card.json edited without running identity is refused by plan and by run', async () => {
+        const restore = keepFiles(['identity_card.json']);
+        try {
+            write(path.join(run, 'identity_card.json'), { ...card, hair: 'short green hair' });
+            await expect(main(['run', run, ...COMFY, '--resume', '--json'])).rejects.toThrow(/identity_card\.json was edited.*Run identity .*again/);
+            await expect(main(['plan', run, '--json'])).rejects.toThrow(/identity_card\.json was edited.*Run identity .*again/);
+            expect(plan().units[0].prompt).not.toContain('green');
+        } finally {
+            restore();
+        }
+    }, 120_000);
+
+    test('continue after a joined shot works from the file it was placed as', async () => {
+        const restore = keepFiles(['remake.json']);
+        try {
+            expect(M().shots.find((s: any) => s.id === 's2').attempts).toEqual([]);
+            // The 180x320 test source is not a size the model takes, so this stops there: past the point where it needed an attempt.
+            const e: Error = await main(['continue', run, '--shot', 'more2', '--after', 's2', '--seconds', '2', '--prompt', 'she keeps walking', ...COMFY, '--json']).catch((x) => x);
+            expect(e.message).not.toMatch(/no finished attempt/);
+            expect(e.message).toMatch(/multiples of 16/);
+        } finally {
+            restore();
+        }
+    }, 120_000);
+
     test('audio: the source sound, final.mp4 and final_silent.mp4 on the 1080x1920 canvas', async () => {
         const m = M();
         m.source.sound = { musicId: '7300000000000000001', title: 'original sound', artist: 'someone', kind: 'original_audio' };
@@ -347,5 +414,48 @@ describe.skipIf(!have)('a landscape source ends on the 1080x1920 canvas, and a c
         expect([p.width, p.height]).toEqual([1080, 1920]);
         expect(JSON.parse(readFileSync(path.join(run, 'remake.json'), 'utf8')).final.canvas).toBe('cover');
         await expect(main(['audio', run, '--canvas', 'stretch'])).rejects.toThrow(/fit or cover/);
+    }, 300_000);
+});
+
+describe.skipIf(!have)('audio: every input is checked before anything is exported', () => {
+    const mk = async (name: string, withSound: boolean) => {
+        const run = path.join(TMP, name);
+        const src = path.join(TMP, `${name}.mp4`);
+        sh(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=30:d=3', ...(withSound ? ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100:duration=3'] : []), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', ...(withSound ? ['-c:a', 'aac', '-shortest'] : []), src]);
+        await main(['init', run, '--source', src, '--identity', PHOTO, '--json']);
+        await main(['assemble', run, '--segments', 'source:0-3', '--json']);
+        return run;
+    };
+    const wav = () => {
+        const f = path.join(TMP, 'rec.wav');
+        if (!existsSync(f)) sh(['-f', 'lavfi', '-i', "aevalsrc='sin(2*PI*(300+30*t)*t)':s=44100:d=6", f]);
+        return f;
+    };
+
+    test('a source with no sound: a refused input writes nothing, and the default audio delivers the silent picture as final.mp4', async () => {
+        const run = await mk('aud_silent', false);
+        const mj = () => read(path.join(run, 'remake.json'));
+        expect(mj().source.hasAudio).toBe(false);
+        await expect(main(['audio', run, '--file', wav(), '--match', '--json'])).rejects.toThrow(/source has none/);
+        await expect(main(['audio', run, '--file', path.join(TMP, 'missing.wav'), '--start', '0', '--json'])).rejects.toThrow();
+        expect(existsSync(path.join(run, 'final_silent.mp4'))).toBe(false);
+        await main(['audio', run, '--json']);
+        const fin = await ff.probe(path.join(run, 'final.mp4'));
+        const sil = await ff.probe(path.join(run, 'final_silent.mp4'));
+        expect(fin.hasAudio).toBe(false);
+        expect([fin.width, fin.height]).toEqual([sil.width, sil.height]);
+        expect(sil.frames).toBe(fin.frames);
+        expect(mj().audio).toMatchObject({ mode: 'none', start: 0 });
+        expect(mj().audio.note).toMatch(/no sound/);
+        expect(mj().final).toMatchObject({ file: 'final.mp4', silent: { file: 'final_silent.mp4' } });
+    }, 300_000);
+
+    test('--audio <file> without --start starts the recording at 0; --file still needs --start', async () => {
+        const run = await mk('aud_file', true);
+        await expect(main(['audio', run, '--file', wav(), '--json'])).rejects.toThrow(/--start is required/);
+        expect(existsSync(path.join(run, 'final_silent.mp4'))).toBe(false);
+        await main(['audio', run, '--audio', wav(), '--json']);
+        expect(read(path.join(run, 'remake.json')).audio).toMatchObject({ mode: 'file', start: 0 });
+        expect((await ff.probe(path.join(run, 'final.mp4'))).hasAudio).toBe(true);
     }, 300_000);
 });
