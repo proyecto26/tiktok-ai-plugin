@@ -527,6 +527,16 @@ describe('remake state: what a change invalidates', () => {
         m.shots[0].selected = 1;
         expect(staleContinuation(m, m.shots[1])).toBeNull();
     });
+    test('a continuation of a joined shot is checked against the file that shot was placed as', () => {
+        const m = manifest();
+        m.shots.push({ id: 'whole', kind: 'swap', parts: [{ shot: 'close' }, { source: [60, 90] }], attempts: [], placed: { file: 'w', sha256: 'W', fromAttempt: 0 }, approved: { at: 'x', sha256: 'W' } });
+        m.shots.push({ id: 'after_whole', kind: 'continue', after: 'whole', attempts: [{ ...attempt(1, 'N', { afterSha256: 'W' }), kind: 'continue' }], placed: { file: 'n', sha256: 'N', fromAttempt: 1 }, approved: { at: 'x', sha256: 'N' } });
+        expect(staleContinuation(m, m.shots[4])).toBeNull();
+        m.shots[3].placed.sha256 = 'W2';
+        expect(staleContinuation(m, m.shots[4])).toMatch(/earlier placement of shot "whole"/);
+        delete m.shots[3].placed;
+        expect(staleContinuation(m, m.shots[4])).toMatch(/shot "whole" is not placed/);
+    });
     test('changes reach continuations of continuations', () => {
         const m = manifest();
         m.shots.push({ id: 'evenmore', kind: 'continue', after: 'more', attempts: [{ ...attempt(1, 'E', { afterAttempt: 1, afterSha256: 'M' }), kind: 'continue' }], placed: { file: 's', sha256: 'S', fromAttempt: 1 }, approved: { at: 'x', sha256: 'S' } });

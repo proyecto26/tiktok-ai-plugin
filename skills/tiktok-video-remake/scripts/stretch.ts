@@ -63,5 +63,10 @@ export const frameTime = (frame: number, fps: number): number => frame / fps;
 /** The frame nearest to a time. */
 export const timeFrame = (t: number, fps: number): number => Math.round(t * fps);
 
-/** Frames each half of a split stretch must have (the seed frame counts for both), so a half can be generated and joined. */
+/**
+ * Frames a half of a split stretch must have when it meets a neighbouring stretch's overlap (the seed frame counts
+ * for both halves), so the half can be generated and then joined to that neighbour over the 8 shared frames.
+ */
 export const MIN_HALF_FRAMES = OVERLAP_FRAMES + 1;
+/** Frames a half needs when it borders no neighbour: the two halves share one frame, so each needs more than that. */
+export const MIN_FREE_HALF_FRAMES = 2;

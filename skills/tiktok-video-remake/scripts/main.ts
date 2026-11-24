@@ -599,7 +599,8 @@ async function continueShot(pos: string[], f: Flags): Promise<void> {
         if (!(seconds > 0) || seconds > 10) throw new Error('--seconds is the new material wanted, up to 10.');
         const guideFrames = num(f, 'guide-frames', CONTINUE_DEFAULTS.guideFrames);
         if (!Number.isInteger(guideFrames) || guideFrames < 1) throw new Error('--guide-frames is a whole number of frames, 1 or more.');
-        const prev = chosen(after);
+        // A shot joined from parts has no attempts of its own: it is continued from the file it was placed as.
+        const prev = after.parts ? { n: undefined, output: after.placed.file, outputSha256: after.placed.sha256 } : chosen(after);
         const prevFile = path.join(run, prev.output!);
         if ((await sha256File(prevFile)) !== prev.outputSha256) throw new Error(`The file of shot "${after.id}" changed since it was generated. Generate it again.`);
         const pp = await ff.probe(prevFile);
@@ -733,8 +734,27 @@ async function markStale(run: string, m: Manifest): Promise<string[]> {
             cleared.push(s.id);
         }
     }
+    // A kept stretch has no attempt, but it was planned from its target too: when that changed, the joined shot it is
+    // part of (if any), the timeline, the sound and both finals are cleared the same way.
+    const targets = plan ? await readJson<Targets>(path.join(run, FILE.targets)) : null;
+    for (const u of plan?.units ?? []) {
+        if (u.action !== 'keep' || u.target_sha256 === undefined || !targets) continue;
+        if (u.target_sha256 === targetHash(targets.subject, targets.stretches[u.stretch])) continue;
+        const joined = m.shots.find((x) => x.id === `s${u.scene}` && x.parts);
+        invalidate(m, joined?.id ?? u.id, 'attempt');
+        if (joined && !cleared.includes(joined.id)) cleared.push(joined.id);
+    }
     await save(run, m);
     return cleared;
+}
+
+/** The card as identity_card.json says it now, against the card the run was registered with: they must be the same. */
+async function assertCardRegistered(run: string, m: Manifest): Promise<void> {
+    const filled = await readJson<unknown>(path.join(run, FILE.card));
+    if (filled === null || !m.character) return;
+    const v = validateCard(filled);
+    if (!v.ok) throw new Error(`${FILE.card} is not usable:\n- ${v.errors.join('\n- ')}\nFix it, then run identity ${run} again.`);
+    if (buildCard(filled as Record<(typeof CARD_FIELDS)[number], string>) !== m.character) throw new Error(`${FILE.card} was edited after the card was registered, so the prompts and the freshness checks still use the old one. Run identity ${run} again.`);
 }
 
 async function identityCmd(pos: string[], f: Flags): Promise<void> {
@@ -865,7 +885,7 @@ async function targetsCmd(pos: string[], f: Flags): Promise<void> {
 }
 
 /** plan.json, checked against the source and the targets; refuses with the command that fixes what is wrong. */
-async function loadPlan(run: string, m: Manifest): Promise<{ plan: Plan; targets: Targets; stale: string[] }> {
+async function loadPlan(run: string, m: Manifest): Promise<{ plan: Plan; targets: Targets; stale: string[]; disagree: string[] }> {
     const targets = await readJson<Targets>(path.join(run, FILE.targets));
     if (!targets) throw new Error(`There are no targets yet. Run targets ${run}, fill ${FILE.targets} from ${FILE.tasks}, then targets ${run} --check.`);
     const plan = await readJson<Plan>(path.join(run, FILE.plan));
@@ -873,8 +893,10 @@ async function loadPlan(run: string, m: Manifest): Promise<{ plan: Plan; targets
     const stretches = await stretchesOf(run, m);
     const v = validatePlan(plan, stretches, frameOf(m), m.source.frames ?? 0);
     if (!v.ok) throw new Error(`${FILE.plan} is not usable:\n- ${v.errors.join('\n- ')}`);
-    const stale = plan.units.filter((u) => u.action === 'swap' && u.target_sha256 !== targetHash(targets.subject, targets.stretches[u.stretch])).map((u) => u.id);
-    return { plan, targets, stale };
+    const stale = plan.units.filter((u) => u.target_sha256 !== targetHash(targets.subject, targets.stretches[u.stretch])).map((u) => u.id);
+    // Swap where the subject is, keep where it is not: targets.json may now say the opposite of what the plan did.
+    const disagree = [...new Set(plan.units.flatMap((u) => (targets.stretches[u.stretch] && Boolean(targets.stretches[u.stretch].present) !== (u.action === 'swap') ? [u.stretch] : [])))];
+    return { plan, targets, stale, disagree };
 }
 
 async function planCmd(pos: string[], f: Flags): Promise<void> {
@@ -882,9 +904,10 @@ async function planCmd(pos: string[], f: Flags): Promise<void> {
     const m = await load(run);
     const stretches = await stretchesOf(run, m);
     if (f.check) {
-        const { plan, stale } = await loadPlan(run, m);
+        const { plan, stale, disagree } = await loadPlan(run, m);
         const cleared = await markStale(run, m);
-        emit({ ok: true, run, runs: plan.units.map((u) => `${u.id}: ${u.action}`), ...(stale.length ? { warning: `the targets changed after these runs were planned: ${stale.join(', ')}; run plan ${run} again` } : {}), ...(cleared.length ? { out_of_date: cleared } : {}), next: `run ${run}` });
+        const warnings = [...(stale.length ? [`the targets changed after these runs were planned: ${stale.join(', ')}; run plan ${run} again`] : []), ...(disagree.length ? [`the targets and the plan disagree about whether the person is in ${disagree.join(', ')}; run plan ${run} again`] : [])];
+        emit({ ok: true, run, runs: plan.units.map((u) => `${u.id}: ${u.action}`), ...(warnings.length ? { warning: warnings.join('; ') } : {}), ...(cleared.length ? { out_of_date: cleared } : {}), next: `run ${run}` });
         return;
     }
     const targets = await readJson<Targets>(path.join(run, FILE.targets));
@@ -892,6 +915,7 @@ async function planCmd(pos: string[], f: Flags): Promise<void> {
     const v = validateTargets(targets, stretches, frameOf(m), m.source.fps);
     if (!v.ok) throw new Error(`${FILE.targets} is not complete:\n- ${v.errors.join('\n- ')}\nFix it, then run targets ${run} --check.`);
     if (!m.character) throw new Error(`There is no character card yet. Run identity ${run}, fill ${FILE.card}, then identity ${run} again.`);
+    await assertCardRegistered(run, m);
     const plan = buildPlan({ stretches, targets, frame: frameOf(m), fps: m.source.fps, frames: m.source.frames!, card: m.character });
     await writeJson(path.join(run, FILE.plan), plan);
     const cleared = await markStale(run, m);
@@ -957,7 +981,10 @@ async function runCmd(pos: string[], f: Flags): Promise<void> {
     const resume = Boolean(f.resume);
     const auto = Boolean(f['auto-approve']);
     if (!m.character) throw new Error(`There is no character card yet. Run identity ${run}, fill ${FILE.card}, then identity ${run} again.`);
-    const { plan, stale } = await loadPlan(run, m);
+    await assertCardRegistered(run, m);
+    const { plan, stale, disagree } = await loadPlan(run, m);
+    if (stale.length || disagree.length) await markStale(run, m);
+    if (disagree.length) throw new Error(`The targets and the plan disagree about whether the person is in ${disagree.join(', ')} (the plan keeps what the targets now say to swap, or the other way round). Run plan ${run} again; ${FILE.plan} is not rewritten for you, since you may have edited it.`);
     if (stale.length) throw new Error(`The targets changed after these runs were planned: ${stale.join(', ')}. Run plan ${run} again (it rebuilds ${FILE.plan} from the targets).`);
     if (plan.card_sha256 !== stableHash({ card: m.character })) throw new Error(`The character card changed after the plan was made. Run plan ${run} again (the prompts repeat the card).`);
     await markStale(run, m);
@@ -1284,37 +1311,42 @@ async function audio(pos: string[], f: Flags): Promise<void> {
     const src = path.join(run, m.source.file);
     const silent = path.join(run, 'final_silent.mp4');
     const out = path.join(run, 'final.mp4');
-    // The picture first: the finished video on the 1080x1920 canvas, without sound. Sound is added to this file.
-    await ff.exportCanvas(video, silent, canvas, { width: m.source.width, height: m.source.height });
-    const sp = await ff.probe(silent);
-    const videoDuration = sp.frames / m.source.fps;
-    let sound: NonNullable<Manifest['audio']>['sound'];
-    if (mode === 'none') {
-        await copyFile(silent, out);
-        m.audio = { mode: 'none', start: 0 };
-    } else if (mode === 'source') {
-        const have = m.source.hasAudio ? await ff.audioLength(src) : 0;
-        if (!have) throw new Error('The source has no sound. Pass --audio none to deliver it silent, or --file <recording> with --start.');
-        const pieces = audioPieces(m, have);
-        const gaps = timelineGaps(m.timeline.segments, m.shots, m.source.fps);
-        if (gaps.length) log(`note: the timeline skips or repeats source time (${gaps.length} place${gaps.length > 1 ? 's' : ''}); the sound follows the picture there, with a short crossfade at each join.`);
-        const wav = path.join(run, 'audio_source.wav');
-        await ff.audioFromPieces(src, wav, pieces, { total: videoDuration, sourceLength: have, eps: 0.5 / m.source.fps });
-        await ff.addSound(silent, wav, out, videoDuration);
-        const credited = m.source.sound ? { musicId: m.source.sound.musicId, title: m.source.sound.title, artist: m.source.sound.artist } : undefined;
-        sound = credited;
-        m.audio = { mode: 'source', start: 0, ...(credited ? { sound: credited } : {}) };
-    } else {
-        const audioDuration = await ff.audioLength(file!);
-        let start: number;
-        let match: Record<string, unknown> | undefined;
+    // Every input is checked before anything is written, so a refusal leaves no half-made final_silent.mp4 behind.
+    const sourceSound = mode === 'source' && m.source.hasAudio ? await ff.audioLength(src) : 0;
+    const noSound = mode === 'source' && !sourceSound;
+    const pieces = mode === 'source' && sourceSound ? audioPieces(m, sourceSound) : [];
+    let start = 0;
+    let match: Record<string, unknown> | undefined;
+    let audioDuration = 0;
+    if (mode === 'file') {
+        audioDuration = await ff.audioLength(file!);
         if (f.match) {
             if (!m.source.hasAudio) throw new Error('--match compares with the source audio, and the source has none. Use --start.');
             const r = await matchOffset(src, file!, m.source.duration);
             match = { ...r };
             if (r.verdict !== 'match') throw new Error(`Could not place the source's sound inside that recording with confidence (waveform match ${r.score.toFixed(2)}, next best place ${r.runnerUp.toFixed(2)}). It may be a different version of the track. Give the position yourself with --start.`);
             start = r.offset;
-        } else start = num(f, 'start');
+        } else start = num(f, 'start', choice !== undefined ? 0 : undefined);
+    }
+    // The picture first: the finished video on the 1080x1920 canvas, without sound. Sound is added to this file.
+    await ff.exportCanvas(video, silent, canvas, { width: m.source.width, height: m.source.height });
+    const sp = await ff.probe(silent);
+    const videoDuration = sp.frames / m.source.fps;
+    let sound: NonNullable<Manifest['audio']>['sound'];
+    if (mode === 'none' || noSound) {
+        await copyFile(silent, out);
+        m.audio = { mode: 'none', start: 0, ...(noSound ? { note: 'the source has no sound, so final.mp4 is the same silent picture as final_silent.mp4' } : {}) };
+        if (noSound) log('warning: the source has no sound, so final.mp4 is the same silent picture as final_silent.mp4. Pass --file <recording> with --start to add one, or add a sound in the app.');
+    } else if (mode === 'source') {
+        const gaps = timelineGaps(m.timeline.segments, m.shots, m.source.fps);
+        if (gaps.length) log(`note: the timeline skips or repeats source time (${gaps.length} place${gaps.length > 1 ? 's' : ''}); the sound follows the picture there, with a short crossfade at each join.`);
+        const wav = path.join(run, 'audio_source.wav');
+        await ff.audioFromPieces(src, wav, pieces, { total: videoDuration, sourceLength: sourceSound, eps: 0.5 / m.source.fps });
+        await ff.addSound(silent, wav, out, videoDuration);
+        const credited = m.source.sound ? { musicId: m.source.sound.musicId, title: m.source.sound.title, artist: m.source.sound.artist } : undefined;
+        sound = credited;
+        m.audio = { mode: 'source', start: 0, ...(credited ? { sound: credited } : {}) };
+    } else {
         await ff.mux(silent, file!, out, { audioStart: start, videoDuration, audioDuration });
         // Measure where the sound of the finished file actually sits in the recording, instead of trusting the cut.
         const check = await matchOffset(out, file!, videoDuration);
@@ -1331,8 +1363,9 @@ async function audio(pos: string[], f: Flags): Promise<void> {
         final_silent: silent,
         size: `${p.width}x${p.height}`,
         duration: p.duration.toFixed(2),
-        audio: mode === 'source' ? 'source audio' : mode === 'none' ? 'none (silent master)' : `${path.basename(file!)} from ${m.audio.start.toFixed(3)} s (measured in the finished file: ${m.audio.measuredStart ?? 'could not be measured'})`,
+        audio: noSound ? 'none (the source has no sound; final.mp4 is silent)' : mode === 'source' ? 'source audio' : mode === 'none' ? 'none (silent master)' : `${path.basename(file!)} from ${m.audio.start.toFixed(3)} s (measured in the finished file: ${m.audio.measuredStart ?? 'could not be measured'})`,
         ...(sound ? { tiktok_sound: sound } : {}),
+        ...(noSound ? { warning: 'The source has no sound, so final.mp4 is silent. Pass --file <recording> with --start to add one.' } : {}),
         ...(mode === 'file' ? { note: 'The recording replaces the whole soundtrack, including any voices or ambience of the source.' } : {}),
         next: `compare ${run}   then watch final.mp4 with sound. Label it as AI-generated when publishing (tiktok publish prepare --ai-generated).`,
     });

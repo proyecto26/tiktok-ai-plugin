@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { OVERLAP_FRAMES, sceneStretches, stripFrames, stretchesOfScene } from '../../skills/tiktok-video-remake/scripts/stretch.ts';
-import { PROMPT_CLAUSE, buildCard, buildPlan, cropFor, freshOf, promptFor, stableHash, unitsOf, validateCard, validatePlan, validateTargets, type Targets } from '../../skills/tiktok-video-remake/scripts/plan.ts';
+import { PROMPT_CLAUSE, buildCard, buildPlan, cropFor, freshOf, promptFor, stableHash, targetHash, unitsOf, validateCard, validatePlan, validateTargets, type Targets } from '../../skills/tiktok-video-remake/scripts/plan.ts';
 
 const FRAME = { width: 720, height: 1280 };
 const card = { hair: 'long dark brown hair worn loose', face: 'an oval face with dark eyes', skin: 'light olive skin', build: 'slim build', distinctive_marks: 'a small mole under the left eye', jewellery: 'none', default_wardrobe: 'a black lace sleeveless mini dress' };
@@ -103,8 +103,41 @@ describe('targets', () => {
         const ok = { t: 1.5, point: [300, 500] };
         expect(check({ ...base(), stretches: { s1: present({ seed: ok, point: undefined }), s2: absent() } }).errors).toEqual([]);
         expect(check({ ...base(), stretches: { s1: present({ seed: { t: 7, point: [1, 1] }, point: undefined }), s2: absent() } }).errors.join()).toMatch(/s1.*seed.*inside/);
-        expect(check({ ...base(), stretches: { s1: present({ seed: { t: 0.1, point: [1, 1] }, point: undefined }), s2: absent() } }).errors.join()).toMatch(/s1.*seed.*too close/);
+        expect(check({ ...base(), stretches: { s1: present({ seed: { t: 0, point: [1, 1] }, point: undefined }), s2: absent() } }).errors.join()).toMatch(/s1.*seed.*too close/);
         expect(check({ ...base(), stretches: { s1: present({ seed: 'middle' }), s2: absent() } }).errors.join()).toMatch(/s1.*seed/);
+    });
+});
+
+describe("seed splits: only a half that meets a neighbour's overlap needs 9 frames", () => {
+    const seedAt = (frame: number, fps = 30) => ({ t: frame / fps, point: [300, 500] });
+    const targetsFor = (st: ReturnType<typeof sceneStretches>, id: string, frame: number): Targets => ({ subject: 'the woman in the red coat', stretches: Object.fromEntries(st.map((s) => [s.id, s.id === id ? present({ seed: seedAt(frame), point: undefined }) : absent()])) }) as unknown as Targets;
+    const errorsOf = (st: ReturnType<typeof sceneStretches>, id: string, frame: number) => validateTargets(targetsFor(st, id, frame), st, FRAME, 30).errors.filter((e) => e.startsWith(`${id}:`) && /seed/.test(e));
+    test('a 16-frame single-stretch shot takes a seed at its middle and splits into two halves', () => {
+        const st = sceneStretches([], 16, 30);
+        const targets = targetsFor(st, 's1', 8);
+        expect(validateTargets(targets, st, FRAME, 30).errors).toEqual([]);
+        const plan = buildPlan({ stretches: st, targets, frame: FRAME, fps: 30, frames: 16, card: buildCard(card) });
+        expect(plan.units.map((u) => [u.id, u.first, u.end])).toEqual([['s1_a', 0, 9], ['s1_b', 8, 16]]);
+        // a half of one frame is still too short
+        expect(errorsOf(st, 's1', 0).join()).toMatch(/too close/);
+        expect(errorsOf(st, 's1', 15).join()).toMatch(/too close/);
+        expect(errorsOf(st, 's1', 1)).toEqual([]);
+        expect(errorsOf(st, 's1', 14)).toEqual([]);
+    });
+    test('a half that borders a neighbouring stretch keeps the 9-frame minimum; the free end does not', () => {
+        const st = sceneStretches([], 700, 30);
+        expect(st.map((s) => s.id)).toEqual(['s1_1', 's1_2', 's1_3']);
+        const [a, b, c] = st;
+        // first stretch: its start borders nothing, its end borders s1_2
+        expect(errorsOf(st, 's1_1', a.first + 1)).toEqual([]);
+        expect(errorsOf(st, 's1_1', a.end - 8).join()).toMatch(/too close/);
+        expect(errorsOf(st, 's1_1', a.end - 9)).toEqual([]);
+        // middle stretch: both ends border a neighbour
+        expect(errorsOf(st, 's1_2', b.first + 7).join()).toMatch(/too close/);
+        expect(errorsOf(st, 's1_2', b.end - 8).join()).toMatch(/too close/);
+        // last stretch: its end is free, its start borders s1_2
+        expect(errorsOf(st, 's1_3', c.first + 7).join()).toMatch(/too close/);
+        expect(errorsOf(st, 's1_3', c.end - 2)).toEqual([]);
     });
 });
 
@@ -217,6 +250,32 @@ describe('plan', () => {
         const missing = JSON.parse(JSON.stringify(plan));
         missing.units.pop();
         expect(validatePlan(missing, st, FRAME, 250).errors.join()).toMatch(/s2.*no entry/);
+    });
+});
+
+describe('plan checks: reverse and seed_frame agree; kept runs record their target', () => {
+    const st = sceneStretches([], 100, 30);
+    const build = (answer: unknown) => JSON.parse(JSON.stringify(buildPlan({ stretches: st, targets: { subject: 'the woman in the red coat', stretches: { s1: answer } } as unknown as Targets, frame: FRAME, fps: 30, frames: 100, card: buildCard(card) })));
+    test('a plan as built passes', () => expect(validatePlan(build(present({ seed: 'last', point: [10, 20] })), st, FRAME, 100)).toEqual({ ok: true, errors: [] }));
+    test('seed last with reverse edited to false is refused, naming the run', () => {
+        const p = build(present({ seed: 'last', point: [10, 20] }));
+        p.units[0].reverse = false;
+        expect(validatePlan(p, st, FRAME, 100).errors.join()).toMatch(/s1.*seed_frame 99.*reverse/);
+    });
+    test('seed first with reverse edited to true is refused', () => {
+        const p = build(present());
+        p.units[0].reverse = true;
+        expect(validatePlan(p, st, FRAME, 100).errors.join()).toMatch(/s1.*seed_frame 0.*reverse/);
+    });
+    test('a seed_frame that is neither end of the run is refused', () => {
+        const p = build(present());
+        p.units[0].seed_frame = 50;
+        expect(validatePlan(p, st, FRAME, 100).errors.join()).toMatch(/s1.*seed_frame 50/);
+    });
+    test('a kept run records the hash of the target it was made from', () => {
+        const p = build(absent());
+        expect(p.units[0].action).toBe('keep');
+        expect(p.units[0].target_sha256).toBe(targetHash('the woman in the red coat', absent() as never));
     });
 });
 
